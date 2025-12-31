@@ -60,8 +60,9 @@ Route::prefix('student')->name('student.')->middleware(['auth'])->group(function
     Route::post('exams/{attemptToken}/submit', [ExamAttemptController::class, 'submit'])->name('exams.submit');
 });
 
-// Parent Routes
-Route::prefix('parent')->name('parent.')->middleware(['auth'])->group(function () {
-    Route::get('/dashboard', [ParentDashboardController::class, 'index'])->name('dashboard');
-    Route::get('children/{student}/performance', [ParentDashboardController::class, 'performance'])->name('children.performance');
+// Parent Routes - FIXED
+Route::prefix('parent')->name('parent.')->middleware(['auth', 'role:parent'])->group(function () {
+    Route::get('/dashboard', [\App\Http\Controllers\Parent\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/children/{student}/performance', [\App\Http\Controllers\Parent\DashboardController::class, 'performance'])->name('children.performance');
 });
+
