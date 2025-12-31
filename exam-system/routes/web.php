@@ -1,13 +1,27 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboard;
 use App\Http\Controllers\Admin\QuestionController;
+use App\Http\Controllers\Teacher\DashboardController as TeacherDashboard;
 use App\Http\Controllers\Teacher\ExamController as TeacherExamController;
+use App\Http\Controllers\Student\DashboardController as StudentDashboard;
 use App\Http\Controllers\Student\ExamAttemptController;
 use App\Http\Controllers\Parent\DashboardController as ParentDashboardController;
 
+// Public Routes
+Route::get('/', function () {
+    return redirect('/login');
+});
+
+Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [LoginController::class, 'login']);
+Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+
 // Admin Routes
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->group(function () {
+    Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard');
     Route::resource('questions', QuestionController::class);
     Route::post('questions/import', [QuestionController::class, 'bulkImport'])->name('questions.import');
     Route::get('questions/subjects/{category}', [QuestionController::class, 'getSubjectsByCategory']);
@@ -17,6 +31,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
 
 // Teacher Routes
 Route::prefix('teacher')->name('teacher.')->middleware(['auth', 'role:teacher'])->group(function () {
+    Route::get('/dashboard', [TeacherDashboard::class, 'index'])->name('dashboard');
     Route::resource('exams', TeacherExamController::class);
     Route::post('exams/{exam}/enroll-students', [TeacherExamController::class, 'enrollStudents'])->name('exams.enroll');
     Route::post('exams/{exam}/publish-results', [TeacherExamController::class, 'publishResults'])->name('exams.publish');
@@ -25,6 +40,7 @@ Route::prefix('teacher')->name('teacher.')->middleware(['auth', 'role:teacher'])
 
 // Student Routes
 Route::prefix('student')->name('student.')->middleware(['auth', 'role:student'])->group(function () {
+    Route::get('/dashboard', [StudentDashboard::class, 'index'])->name('dashboard');
     Route::get('exams', [ExamAttemptController::class, 'index'])->name('exams.index');
     Route::get('exams/{exam}/instructions', [ExamAttemptController::class, 'instructions'])->name('exams.instructions');
     Route::post('exams/{exam}/start', [ExamAttemptController::class, 'start'])->name('exams.start');
@@ -37,6 +53,6 @@ Route::prefix('student')->name('student.')->middleware(['auth', 'role:student'])
 
 // Parent Routes
 Route::prefix('parent')->name('parent.')->middleware(['auth', 'role:parent'])->group(function () {
-    Route::get('dashboard', [ParentDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard', [ParentDashboardController::class, 'index'])->name('dashboard');
     Route::get('children/{student}/performance', [ParentDashboardController::class, 'performance'])->name('children.performance');
 });
