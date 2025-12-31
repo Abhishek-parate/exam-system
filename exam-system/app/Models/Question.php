@@ -1,4 +1,3 @@
-// app/Models/Question.php
 <?php
 
 namespace App\Models;
@@ -64,7 +63,6 @@ class Question extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    // Scope for active questions
     public function scopeActive($query)
     {
         return $query->where('is_active', true);

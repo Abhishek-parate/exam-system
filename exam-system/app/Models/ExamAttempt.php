@@ -1,4 +1,3 @@
-// app/Models/ExamAttempt.php
 <?php
 
 namespace App\Models;

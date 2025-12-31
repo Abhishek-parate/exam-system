@@ -1,4 +1,3 @@
-// app/Models/Exam.php
 <?php
 
 namespace App\Models;
@@ -71,7 +70,6 @@ class Exam extends Model
         return $this->hasMany(ExamResult::class);
     }
 
-    // Status Helpers
     public function isUpcoming()
     {
         return Carbon::now()->lt($this->start_time);

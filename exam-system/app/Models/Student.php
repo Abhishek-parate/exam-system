@@ -1,4 +1,3 @@
-// app/Models/Student.php
 <?php
 
 namespace App\Models;
