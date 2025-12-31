@@ -20,6 +20,7 @@ Route::post('/login', [LoginController::class, 'login']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 // Admin Routes (TEMPORARILY REMOVED role:admin)
+// Admin Routes
 Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
     Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard');
     Route::resource('questions', QuestionController::class);
@@ -27,7 +28,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     Route::get('questions/subjects/{category}', [QuestionController::class, 'getSubjectsByCategory']);
     Route::get('questions/chapters/{subject}', [QuestionController::class, 'getChaptersBySubject']);
     Route::get('questions/topics/{chapter}', [QuestionController::class, 'getTopicsByChapter']);
+    
+    // ADD THESE EXAM ROUTES:
+    Route::resource('exams', \App\Http\Controllers\Admin\ExamController::class);
 });
+
 
 // Teacher Routes
 Route::prefix('teacher')->name('teacher.')->middleware(['auth'])->group(function () {
@@ -56,3 +61,5 @@ Route::prefix('parent')->name('parent.')->middleware(['auth'])->group(function (
     Route::get('/dashboard', [ParentDashboardController::class, 'index'])->name('dashboard');
     Route::get('children/{student}/performance', [ParentDashboardController::class, 'performance'])->name('children.performance');
 });
+
+
