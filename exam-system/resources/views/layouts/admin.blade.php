@@ -5,10 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Admin - Exam Portal')</title>
-    {{-- @vite(['resources/css/app.css', 'resources/js/app.js']) --}}
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    
+    {{-- ✅ QUILL EDITOR --}}
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    
+    @stack('styles')
 </head>
 <body class="bg-gray-50">
-    <!-- Top Navigation -->
+    <!-- Navigation -->
     <nav class="bg-white shadow-lg sticky top-0 z-50">
         <div class="container mx-auto px-4">
             <div class="flex justify-between items-center py-4">
@@ -17,21 +23,11 @@
                         🎓 Exam Portal
                     </a>
                     <div class="hidden md:flex space-x-6">
-                        <a href="/admin/dashboard" class="text-gray-700 hover:text-blue-600 font-medium transition">
-                            Dashboard
-                        </a>
-                        <a href="{{ route('admin.questions.index') }}" class="text-gray-700 hover:text-blue-600 font-medium transition">
-                            Questions
-                        </a>
-                        <a href="/admin/exams" class="text-gray-700 hover:text-blue-600 font-medium transition">
-                            Exams
-                        </a>
-                        <a href="/admin/users" class="text-gray-700 hover:text-blue-600 font-medium transition">
-                            Users
-                        </a>
-                        <a href="/admin/reports" class="text-gray-700 hover:text-blue-600 font-medium transition">
-                            Reports
-                        </a>
+                        <a href="/admin/dashboard" class="text-gray-700 hover:text-blue-600 font-medium transition">Dashboard</a>
+                        <a href="{{ route('admin.questions.index') }}" class="text-gray-700 hover:text-blue-600 font-medium transition">Questions</a>
+                        <a href="/admin/exams" class="text-gray-700 hover:text-blue-600 font-medium transition">Exams</a>
+                        <a href="/admin/users" class="text-gray-700 hover:text-blue-600 font-medium transition">Users</a>
+                        <a href="/admin/reports" class="text-gray-700 hover:text-blue-600 font-medium transition">Reports</a>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
@@ -46,9 +42,7 @@
                     </div>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
-                        <button type="submit" class="text-red-600 hover:text-red-800 font-medium transition">
-                            Logout
-                        </button>
+                        <button type="submit" class="text-red-600 hover:text-red-800 font-medium transition">Logout</button>
                     </form>
                 </div>
             </div>
@@ -82,7 +76,9 @@
             <p>&copy; {{ date('Y') }} Exam Portal. All rights reserved.</p>
         </div>
     </footer>
-        <script src="https://cdn.tailwindcss.com"></script>
+    
+    @stack('scripts')
+            <script src="https://cdn.tailwindcss.com"></script>
 
 </body>
 </html>

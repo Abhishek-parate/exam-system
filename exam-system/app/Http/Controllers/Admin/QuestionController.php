@@ -91,6 +91,11 @@ class QuestionController extends Controller
                 $validated['explanation_image'] = $request->file('explanation_image')->store('explanations', 'public');
             }
 
+            // ✅ FIX: Convert empty strings to NULL for nullable fields
+            $validated['chapter_id'] = !empty($validated['chapter_id']) ? $validated['chapter_id'] : null;
+            $validated['topic_id'] = !empty($validated['topic_id']) ? $validated['topic_id'] : null;
+            $validated['explanation'] = !empty($validated['explanation']) ? $validated['explanation'] : null;
+            
             $validated['created_by'] = auth()->id();
             $validated['is_active'] = true;
 
@@ -182,6 +187,11 @@ class QuestionController extends Controller
                 }
                 $validated['explanation_image'] = $request->file('explanation_image')->store('explanations', 'public');
             }
+
+            // ✅ FIX: Convert empty strings to NULL for nullable fields
+            $validated['chapter_id'] = !empty($validated['chapter_id']) ? $validated['chapter_id'] : null;
+            $validated['topic_id'] = !empty($validated['topic_id']) ? $validated['topic_id'] : null;
+            $validated['explanation'] = !empty($validated['explanation']) ? $validated['explanation'] : null;
 
             $question->update($validated);
 
