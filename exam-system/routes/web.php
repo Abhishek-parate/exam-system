@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboard;
 use App\Http\Controllers\Admin\QuestionController;
+use App\Http\Controllers\Admin\UserController; // ✅ ADD THIS LINE
 use App\Http\Controllers\Teacher\DashboardController as TeacherDashboard;
 use App\Http\Controllers\Teacher\ExamController as TeacherExamController;
 use App\Http\Controllers\Student\DashboardController as StudentDashboard;
@@ -19,20 +20,23 @@ Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [LoginController::class, 'login']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-// Admin Routes (TEMPORARILY REMOVED role:admin)
 // Admin Routes
 Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
     Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard');
+    
+    // Question Management
     Route::resource('questions', QuestionController::class);
     Route::post('questions/import', [QuestionController::class, 'bulkImport'])->name('questions.import');
     Route::get('questions/subjects/{category}', [QuestionController::class, 'getSubjectsByCategory']);
     Route::get('questions/chapters/{subject}', [QuestionController::class, 'getChaptersBySubject']);
     Route::get('questions/topics/{chapter}', [QuestionController::class, 'getTopicsByChapter']);
     
-    // ADD THESE EXAM ROUTES:
+    // User Management
+    Route::resource('users', UserController::class);
+    
+    // Exam Management
     Route::resource('exams', \App\Http\Controllers\Admin\ExamController::class);
 });
-
 
 // Teacher Routes
 Route::prefix('teacher')->name('teacher.')->middleware(['auth'])->group(function () {
@@ -61,5 +65,3 @@ Route::prefix('parent')->name('parent.')->middleware(['auth'])->group(function (
     Route::get('/dashboard', [ParentDashboardController::class, 'index'])->name('dashboard');
     Route::get('children/{student}/performance', [ParentDashboardController::class, 'performance'])->name('children.performance');
 });
-
-
