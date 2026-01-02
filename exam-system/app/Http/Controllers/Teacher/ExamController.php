@@ -1,4 +1,3 @@
-// app/Http/Controllers/Teacher/ExamController.php
 <?php
 
 namespace App\Http\Controllers\Teacher;
@@ -18,11 +17,11 @@ class ExamController extends Controller
 {
     public function index()
     {
-        $exams = Exam::with(['examCategory', 'creator'])
-                    ->where('created_by', auth()->id())
-                    ->latest()
-                    ->paginate(15);
-        
+        $exams = Exam::with(['examCategory', 'questions'])
+            ->where('created_by', auth()->id())
+            ->latest()
+            ->paginate(15);
+
         return view('teacher.exams.index', compact('exams'));
     }
 
@@ -30,8 +29,11 @@ class ExamController extends Controller
     {
         $examCategories = ExamCategory::where('is_active', true)->get();
         $subjects = Subject::where('is_active', true)->get();
-        
-        return view('teacher.exams.create', compact('examCategories', 'subjects'));
+        $questions = Question::with(['subject', 'examCategory'])
+            ->where('is_active', true)
+            ->get();
+
+        return view('teacher.exams.create', compact('examCategories', 'subjects', 'questions'));
     }
 
     public function store(Request $request)
@@ -42,7 +44,7 @@ class ExamController extends Controller
             'description' => 'nullable|string',
             'duration_minutes' => 'required|integer|min:1',
             'total_questions' => 'required|integer|min:1',
-            'start_time' => 'required|date|after:now',
+            'start_time' => 'required|date',
             'end_time' => 'required|date|after:start_time',
             'result_release_time' => 'nullable|date|after:end_time',
             'show_results_immediately' => 'nullable|boolean',
@@ -56,7 +58,17 @@ class ExamController extends Controller
             'selected_questions' => 'required|array|min:1',
         ]);
 
+        // Filter out empty question IDs
+        $selectedQuestions = array_filter($request->selected_questions, function($qId) {
+            return !empty($qId) && is_numeric($qId);
+        });
+
+        if (empty($selectedQuestions)) {
+            return back()->with('error', 'Please select at least one question for the exam.')->withInput();
+        }
+
         DB::beginTransaction();
+
         try {
             $validated['exam_code'] = 'EXM' . strtoupper(Str::random(8));
             $validated['created_by'] = auth()->id();
@@ -68,14 +80,14 @@ class ExamController extends Controller
             // Calculate total marks
             $totalMarks = 0;
             foreach ($request->marking_schemes as $scheme) {
-                $questionCount = count(array_filter($request->selected_questions, function($qId) use ($scheme) {
+                $questionCount = count(array_filter($selectedQuestions, function($qId) use ($scheme) {
                     $question = Question::find($qId);
                     return $question && $question->subject_id == $scheme['subject_id'];
                 }));
                 $totalMarks += $questionCount * $scheme['correct_marks'];
             }
-            $validated['total_marks'] = $totalMarks;
 
+            $validated['total_marks'] = $totalMarks;
             $exam = Exam::create($validated);
 
             // Create marking schemes
@@ -89,17 +101,18 @@ class ExamController extends Controller
                 ]);
             }
 
-            // Attach questions
+            // Attach questions with proper validation
             $displayOrder = 1;
-            foreach ($request->selected_questions as $questionId) {
-                $exam->questions()->attach($questionId, ['display_order' => $displayOrder++]);
+            foreach ($selectedQuestions as $questionId) {
+                if (!empty($questionId) && is_numeric($questionId)) {
+                    $exam->questions()->attach($questionId, ['display_order' => $displayOrder++]);
+                }
             }
 
             DB::commit();
-            
+
             return redirect()->route('teacher.exams.index')
                 ->with('success', 'Exam created successfully!');
-                
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Failed to create exam: ' . $e->getMessage())->withInput();
@@ -109,11 +122,10 @@ class ExamController extends Controller
     public function show(Exam $exam)
     {
         $this->authorize('view', $exam);
-        
+
         $exam->load(['examCategory', 'questions.subject', 'markingSchemes.subject', 'enrolledStudents']);
-        
         $attempts = $exam->attempts()->with('student.user')->latest()->paginate(20);
-        
+
         $statistics = [
             'total_enrolled' => $exam->enrolledStudents()->count(),
             'total_attempts' => $exam->attempts()->count(),
@@ -121,20 +133,21 @@ class ExamController extends Controller
             'in_progress' => $exam->attempts()->where('status', 'in_progress')->count(),
             'average_score' => $exam->results()->avg('obtained_marks') ?? 0,
         ];
-        
+
         return view('teacher.exams.show', compact('exam', 'attempts', 'statistics'));
     }
 
     public function enrollStudents(Request $request, Exam $exam)
     {
         $this->authorize('update', $exam);
-        
+
         $request->validate([
             'student_ids' => 'required|array',
             'student_ids.*' => 'exists:students,id',
         ]);
 
         DB::beginTransaction();
+
         try {
             foreach ($request->student_ids as $studentId) {
                 $exam->enrolledStudents()->syncWithoutDetaching([
@@ -143,12 +156,11 @@ class ExamController extends Controller
             }
 
             DB::commit();
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Students enrolled successfully'
             ]);
-            
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -180,11 +192,10 @@ class ExamController extends Controller
         }
     }
 
-    // AJAX - Search questions for exam creation
     public function searchQuestions(Request $request)
     {
         $query = Question::with(['subject', 'difficulty'])
-                        ->where('is_active', true);
+            ->where('is_active', true);
 
         if ($request->exam_category_id) {
             $query->where('exam_category_id', $request->exam_category_id);
