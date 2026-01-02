@@ -58,8 +58,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
 |--------------------------------------------------------------------------
 */
 Route::prefix('teacher')->name('teacher.')->middleware(['auth', 'role:teacher'])->group(function () {
-    // Dashboard
+    // Dashboard & Reports
     Route::get('/dashboard', [TeacherDashboard::class, 'index'])->name('dashboard');
+    Route::get('/reports', [TeacherDashboard::class, 'reports'])->name('reports.index');
     
     // Exam Management
     // AJAX route for searching questions (must come before resource routes)
