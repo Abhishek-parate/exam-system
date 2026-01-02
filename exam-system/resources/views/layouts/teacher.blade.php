@@ -66,6 +66,6 @@
             <p>&copy; {{ date('Y') }} Exam Portal. All rights reserved.</p>
         </div>
     </footer>
+    <script src="https://cdn.tailwindcss.com"></script>
 </body>
 </html>
-w

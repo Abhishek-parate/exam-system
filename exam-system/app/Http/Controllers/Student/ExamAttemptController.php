@@ -1,4 +1,3 @@
-// app/Http/Controllers/Student/ExamAttemptController.php
 <?php
 
 namespace App\Http\Controllers\Student;
