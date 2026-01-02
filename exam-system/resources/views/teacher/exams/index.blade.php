@@ -49,6 +49,19 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @foreach($exams as $exam)
+                        @php
+                            $now = now();
+                            if ($now->lt($exam->start_time)) {
+                                $status = 'Scheduled';
+                                $statusColor = 'bg-yellow-100 text-yellow-800';
+                            } elseif ($now->between($exam->start_time, $exam->end_time)) {
+                                $status = 'Ongoing';
+                                $statusColor = 'bg-green-100 text-green-800';
+                            } else {
+                                $status = 'Completed';
+                                $statusColor = 'bg-gray-100 text-gray-800';
+                            }
+                        @endphp
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm font-medium text-gray-900">{{ $exam->title }}</div>
@@ -67,19 +80,6 @@
                                 {{ $exam->start_time->format('d M Y, h:i A') }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                @php
-                                    $now = now();
-                                    if ($now->lt($exam->start_time)) {
-                                        $status = 'Scheduled';
-                                        $statusColor = 'bg-yellow-100 text-yellow-800';
-                                    } elseif ($now->between($exam->start_time, $exam->end_time)) {
-                                        $status = 'Ongoing';
-                                        $statusColor = 'bg-green-100 text-green-800';
-                                    } else {
-                                        $status = 'Completed';
-                                        $statusColor = 'bg-gray-100 text-gray-800';
-                                    }
-                                @endphp
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $statusColor }}">
                                     {{ $status }}
                                 </span>
@@ -87,7 +87,22 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <a href="{{ route('teacher.exams.show', $exam->id) }}" 
                                     class="text-blue-600 hover:text-blue-900 mr-3">View</a>
-                                <a href="#" class="text-green-600 hover:text-green-900">Edit</a>
+                                
+                                @if($status === 'Scheduled')
+                                    <a href="{{ route('teacher.exams.edit', $exam->id) }}" 
+                                        class="text-green-600 hover:text-green-900 mr-3">Edit</a>
+                                @else
+                                    <span class="text-gray-400 cursor-not-allowed mr-3" title="Cannot edit ongoing or completed exams">Edit</span>
+                                @endif
+                                
+                                @if($status === 'Scheduled' && $exam->attempts->count() === 0)
+                                    <form action="{{ route('teacher.exams.destroy', $exam->id) }}" method="POST" class="inline" 
+                                        onsubmit="return confirm('Are you sure you want to delete this exam?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
+                                    </form>
+                                @endif
                             </td>
                         </tr>
                     @endforeach
