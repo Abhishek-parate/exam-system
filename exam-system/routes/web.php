@@ -104,6 +104,10 @@ Route::prefix('student')->name('student.')->middleware(['auth', 'role:student'])
     Route::post('exams/{attemptToken}/track-time', [ExamAttemptController::class, 'trackTime'])->name('exams.track-time');
     Route::get('exams/{attemptToken}/status', [ExamAttemptController::class, 'getStatus'])->name('exams.status');
     Route::post('exams/{attemptToken}/submit', [ExamAttemptController::class, 'submit'])->name('exams.submit');
+    
+    // NEW: Results and Profile
+    Route::get('results', [StudentDashboard::class, 'results'])->name('results');
+    Route::get('profile', [StudentDashboard::class, 'profile'])->name('profile');
 });
 
 /*
