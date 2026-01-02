@@ -10,8 +10,12 @@ class Student extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'enrollment_number', 'class', 'date_of_birth', 
-        'address', 'target_exam'
+        'user_id',
+        'enrollment_number',
+        'class',          // string like "10th A" etc.
+        'date_of_birth',
+        'address',
+        'target_exam',
     ];
 
     protected $casts = [
