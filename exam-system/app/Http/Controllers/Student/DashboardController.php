@@ -3,14 +3,19 @@
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
-use App\Models\ExamAttempt;
-use App\Models\ExamResult;
+use App\Models\Student;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
+    /**
+     * Dashboard page
+     */
     public function index()
     {
-        $student = auth()->user()->student;
+        $student = Auth::user()->student;
 
         // Available exams (enrolled, not attempted, within time)
         $availableExams = $student->enrolledExams()
@@ -47,5 +52,44 @@ class DashboardController extends Controller
         ];
 
         return view('student.dashboard', compact('stats', 'availableExams', 'upcomingExams', 'completedAttempts'));
+    }
+
+    /**
+     * Results page - list all completed exam attempts with results
+     */
+    public function results()
+    {
+        $student = Auth::user()->student;
+        $attempts = $student->examAttempts()
+            ->whereIn('status', ['submitted', 'auto_submitted'])
+            ->with(['exam.examCategory', 'result'])
+            ->latest()
+            ->paginate(10);
+
+        return view('student.results', compact('attempts', 'student'));
+    }
+
+    /**
+     * Profile page - student information
+     */
+    public function profile()
+    {
+        $student = Auth::user()->student;
+        $user = Auth::user();
+
+        // Pre-compute stats for performance and to avoid database errors
+        $stats = [
+            'enrolledExamsCount' => $student->enrolledExams()->count(),
+            'examAttemptsCount' => $student->examAttempts()->count(),
+            'publishedResultsCount' => $student->results()->where('is_published', true)->count(),
+            'avgPercentage' => $student->results()
+                ->where('is_published', true)
+                ->get()
+                ->avg(function ($result) {
+                    return $result->max_marks > 0 ? ($result->total_marks / $result->max_marks * 100) : 0;
+                }) ?? 0,
+        ];
+
+        return view('student.profile', compact('student', 'user', 'stats'));
     }
 }
