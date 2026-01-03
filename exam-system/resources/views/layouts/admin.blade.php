@@ -22,13 +22,43 @@
                     <a href="/admin/dashboard" class="text-2xl font-bold text-blue-600">
                         🎓 Exam Portal
                     </a>
-                    <div class="hidden md:flex space-x-6">
-                        <a href="/admin/dashboard" class="text-gray-700 hover:text-blue-600 font-medium transition">Dashboard</a>
-                        <a href="{{ route('admin.questions.index') }}" class="text-gray-700 hover:text-blue-600 font-medium transition">Questions</a>
-                        <a href="/admin/exams" class="text-gray-700 hover:text-blue-600 font-medium transition">Exams</a>
-                        <a href="/admin/users" class="text-gray-700 hover:text-blue-600 font-medium transition">Users</a>
-                        <a href="/admin/reports" class="text-gray-700 hover:text-blue-600 font-medium transition">Reports</a>
-                    </div>
+                  <div class="hidden md:flex space-x-6">
+    <a href="{{ route('admin.dashboard') }}"
+       class="text-gray-700 hover:text-blue-600 font-medium transition">
+        Dashboard
+    </a>
+
+    <a href="{{ route('admin.exam-categories.index') }}"
+       class="text-gray-700 hover:text-blue-600 font-medium transition">
+        Exam Categories
+    </a>
+
+    <a href="{{ route('admin.subjects.index') }}"
+       class="text-gray-700 hover:text-blue-600 font-medium transition">
+        Subjects
+    </a>
+
+    <a href="{{ route('admin.questions.index') }}"
+       class="text-gray-700 hover:text-blue-600 font-medium transition">
+        Questions
+    </a>
+
+    <a href="{{ route('admin.exams.index') }}"
+       class="text-gray-700 hover:text-blue-600 font-medium transition">
+        Exams
+    </a>
+
+    <a href="{{ route('admin.users.index') }}"
+       class="text-gray-700 hover:text-blue-600 font-medium transition">
+        Users
+    </a>
+
+    <a href="{{ route('admin.reports') }}"
+       class="text-gray-700 hover:text-blue-600 font-medium transition">
+        Reports
+    </a>
+</div>
+
                 </div>
                 <div class="flex items-center space-x-4">
                     <div class="flex items-center space-x-2">
@@ -47,6 +77,7 @@
                 </div>
             </div>
         </div>
+        
     </nav>
 
     <!-- Main Content -->

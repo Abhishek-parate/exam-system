@@ -4,12 +4,17 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboard;
 use App\Http\Controllers\Admin\QuestionController;
-use App\Http\Controllers\Admin\UserController; // ✅ ADD THIS LINE
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\ReportController; // ✅ ADD THIS
 use App\Http\Controllers\Teacher\DashboardController as TeacherDashboard;
 use App\Http\Controllers\Teacher\ExamController as TeacherExamController;
 use App\Http\Controllers\Student\DashboardController as StudentDashboard;
 use App\Http\Controllers\Student\ExamAttemptController;
 use App\Http\Controllers\Parent\DashboardController as ParentDashboardController;
+use App\Http\Controllers\Admin\ExamCategoryController;
+use App\Http\Controllers\Admin\SubjectController;
+
+
 
 // Public Routes
 Route::get('/', function () {
@@ -30,12 +35,19 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     Route::get('questions/subjects/{category}', [QuestionController::class, 'getSubjectsByCategory']);
     Route::get('questions/chapters/{subject}', [QuestionController::class, 'getChaptersBySubject']);
     Route::get('questions/topics/{chapter}', [QuestionController::class, 'getTopicsByChapter']);
+
+    Route::resource('exam-categories', ExamCategoryController::class);
+    Route::resource('subjects', SubjectController::class);
     
     // User Management
     Route::resource('users', UserController::class);
     
     // Exam Management
     Route::resource('exams', \App\Http\Controllers\Admin\ExamController::class);
+    
+    // ✅ Reports (MOVED INSIDE ADMIN GROUP)
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports');
+    Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
 });
 
 // Teacher Routes

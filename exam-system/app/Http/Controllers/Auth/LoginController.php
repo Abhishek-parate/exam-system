@@ -20,12 +20,12 @@ class LoginController extends Controller
             'password' => 'required',
         ]);
 
-        if (Auth::attempt($credentials, $request->filled('remember'))) {
+        if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
 
             $user = Auth::user();
-            
-            // Redirect based on role
+
+            // ✅ Use FIXED role methods
             if ($user->isAdmin()) {
                 return redirect()->intended('/admin/dashboard');
             } elseif ($user->isTeacher()) {
@@ -36,12 +36,12 @@ class LoginController extends Controller
                 return redirect()->intended('/parent/dashboard');
             }
 
-            return redirect('/');
+            return redirect()->intended('/dashboard');
         }
 
         return back()->withErrors([
             'email' => 'The provided credentials do not match our records.',
-        ])->onlyInput('email');
+        ]);
     }
 
     public function logout(Request $request)

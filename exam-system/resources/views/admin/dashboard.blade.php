@@ -6,7 +6,7 @@
 <div class="container mx-auto px-4 py-8">
     <div class="flex justify-between items-center mb-8">
         <h1 class="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <span class="text-gray-600">Welcome, {{ auth()->user()->name }}</span>
+        <span class="text-gray-600">Welcome, <strong>{{ auth()->user()->name }}</strong></span>
     </div>
 
     <!-- Statistics Cards -->
@@ -15,7 +15,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-blue-100 text-sm font-semibold">Total Students</p>
-                    <p class="text-4xl font-bold mt-2">{{ $stats['total_students'] }}</p>
+                    <p class="text-4xl font-bold mt-2">{{ $stats['total_students'] ?? 0 }}</p>
                 </div>
                 <div class="bg-white bg-opacity-30 p-4 rounded-full">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -29,7 +29,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-green-100 text-sm font-semibold">Total Teachers</p>
-                    <p class="text-4xl font-bold mt-2">{{ $stats['total_teachers'] }}</p>
+                    <p class="text-4xl font-bold mt-2">{{ $stats['total_teachers'] ?? 0 }}</p>
                 </div>
                 <div class="bg-white bg-opacity-30 p-4 rounded-full">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -43,7 +43,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-purple-100 text-sm font-semibold">Total Exams</p>
-                    <p class="text-4xl font-bold mt-2">{{ $stats['total_exams'] }}</p>
+                    <p class="text-4xl font-bold mt-2">{{ $stats['total_exams'] ?? 0 }}</p>
                 </div>
                 <div class="bg-white bg-opacity-30 p-4 rounded-full">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -57,7 +57,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-orange-100 text-sm font-semibold">Total Questions</p>
-                    <p class="text-4xl font-bold mt-2">{{ $stats['total_questions'] }}</p>
+                    <p class="text-4xl font-bold mt-2">{{ $stats['total_questions'] ?? 0 }}</p>
                 </div>
                 <div class="bg-white bg-opacity-30 p-4 rounded-full">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,7 +71,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-red-100 text-sm font-semibold">Ongoing Exams</p>
-                    <p class="text-4xl font-bold mt-2">{{ $stats['ongoing_exams'] }}</p>
+                    <p class="text-4xl font-bold mt-2">{{ $stats['ongoing_exams'] ?? 0 }}</p>
                 </div>
                 <div class="bg-white bg-opacity-30 p-4 rounded-full">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -85,7 +85,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-indigo-100 text-sm font-semibold">Total Attempts</p>
-                    <p class="text-4xl font-bold mt-2">{{ $stats['total_attempts'] }}</p>
+                    <p class="text-4xl font-bold mt-2">{{ $stats['total_attempts'] ?? 0 }}</p>
                 </div>
                 <div class="bg-white bg-opacity-30 p-4 rounded-full">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -98,69 +98,166 @@
 
     <!-- Quick Actions -->
     <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 class="text-xl font-bold mb-4 text-gray-800">Quick Actions</h2>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <a href="{{ route('admin.questions.create') }}" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg text-center transition">
+        <h2 class="text-xl font-bold mb-4 text-gray-800">⚡ Quick Actions</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <a href="{{ route('admin.exam-categories.create') }}" 
+               class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg text-center transition shadow-md hover:shadow-lg">
+                📚 Add Category
+            </a>
+            <a href="{{ route('admin.subjects.create') }}" 
+               class="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg text-center transition shadow-md hover:shadow-lg">
+                📖 Add Subject
+            </a>
+            <a href="{{ route('admin.questions.create') }}" 
+               class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-4 rounded-lg text-center transition shadow-md hover:shadow-lg">
                 ➕ Add Question
             </a>
-            <a href="#" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg text-center transition">
+            <a href="{{ route('admin.users.create') }}" 
+               class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-4 rounded-lg text-center transition shadow-md hover:shadow-lg">
                 👤 Add User
             </a>
-            <a href="#" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-4 rounded-lg text-center transition">
+            <a href="{{ route('admin.exams.create') }}" 
+               class="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-3 px-4 rounded-lg text-center transition shadow-md hover:shadow-lg">
                 📝 Create Exam
             </a>
-            <a href="#" class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-4 rounded-lg text-center transition">
+            <a href="{{ route('admin.reports') }}" 
+               class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg text-center transition shadow-md hover:shadow-lg">
                 📊 View Reports
+            </a>
+            <a href="{{ route('admin.exam-categories.index') }}" 
+               class="bg-teal-500 hover:bg-teal-600 text-white font-semibold py-3 px-4 rounded-lg text-center transition shadow-md hover:shadow-lg">
+                📋 Manage Categories
+            </a>
+            <a href="{{ route('admin.subjects.index') }}" 
+               class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-3 px-4 rounded-lg text-center transition shadow-md hover:shadow-lg">
+                🗂️ Manage Subjects
             </a>
         </div>
     </div>
 
+    <!-- Recent Activity Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Recent Exams -->
         <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-bold mb-4 text-gray-800">Recent Exams</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">📝 Recent Exams</h2>
+                <a href="{{ route('admin.exams.index') }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">View All →</a>
+            </div>
             <div class="space-y-3">
-                @forelse($recentExams as $exam)
-                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                        <div>
+                @forelse($recentExams ?? [] as $exam)
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer">
+                        <div class="flex-1">
                             <p class="font-semibold text-gray-800">{{ $exam->title }}</p>
-                            <p class="text-sm text-gray-600">{{ $exam->examCategory->name }}</p>
+                            <p class="text-sm text-gray-600">{{ $exam->examCategory->name ?? 'N/A' }}</p>
+                            <p class="text-xs text-gray-500 mt-1">
+                                📅 {{ $exam->start_datetime ? $exam->start_datetime->format('M d, Y h:i A') : 'Not scheduled' }}
+                            </p>
                         </div>
                         <span class="px-3 py-1 text-xs font-semibold rounded-full 
                             @if($exam->status === 'ongoing') bg-green-100 text-green-800
                             @elseif($exam->status === 'upcoming') bg-blue-100 text-blue-800
-                            @else bg-gray-100 text-gray-800
+                            @elseif($exam->status === 'completed') bg-gray-100 text-gray-800
+                            @else bg-yellow-100 text-yellow-800
                             @endif">
-                            {{ ucfirst($exam->status) }}
+                            {{ ucfirst($exam->status ?? 'draft') }}
                         </span>
                     </div>
                 @empty
-                    <p class="text-gray-500 text-center py-4">No exams yet</p>
+                    <div class="text-center py-8">
+                        <div class="text-6xl mb-3">📝</div>
+                        <p class="text-gray-500 font-medium">No exams yet</p>
+                        <a href="{{ route('admin.exams.create') }}" class="text-blue-600 hover:text-blue-800 text-sm mt-2 inline-block">
+                            Create your first exam →
+                        </a>
+                    </div>
                 @endforelse
             </div>
         </div>
 
-        <!-- Recent Attempts -->
+        <!-- Recent Exam Attempts -->
         <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-bold mb-4 text-gray-800">Recent Exam Attempts</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">🎯 Recent Exam Attempts</h2>
+                <a href="#" class="text-blue-600 hover:text-blue-800 text-sm font-medium">View All →</a>
+            </div>
             <div class="space-y-3">
-                @forelse($recentAttempts as $attempt)
+                @forelse($recentAttempts ?? [] as $attempt)
                     <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                        <div>
-                            <p class="font-semibold text-gray-800">{{ $attempt->student->user->name }}</p>
-                            <p class="text-sm text-gray-600">{{ $attempt->exam->title }}</p>
+                        <div class="flex-1">
+                            <p class="font-semibold text-gray-800">{{ $attempt->student->user->name ?? 'Unknown' }}</p>
+                            <p class="text-sm text-gray-600">{{ $attempt->exam->title ?? 'N/A' }}</p>
+                            <p class="text-xs text-gray-500 mt-1">
+                                ⏱️ {{ $attempt->created_at ? $attempt->created_at->diffForHumans() : '-' }}
+                            </p>
                         </div>
-                        <span class="px-3 py-1 text-xs font-semibold rounded-full 
-                            @if($attempt->status === 'submitted') bg-green-100 text-green-800
-                            @elseif($attempt->status === 'in_progress') bg-yellow-100 text-yellow-800
-                            @else bg-gray-100 text-gray-800
-                            @endif">
-                            {{ ucfirst(str_replace('_', ' ', $attempt->status)) }}
-                        </span>
+                        <div class="text-right">
+                            <span class="px-3 py-1 text-xs font-semibold rounded-full 
+                                @if($attempt->status === 'submitted') bg-green-100 text-green-800
+                                @elseif($attempt->status === 'in_progress') bg-yellow-100 text-yellow-800
+                                @else bg-gray-100 text-gray-800
+                                @endif">
+                                {{ ucfirst(str_replace('_', ' ', $attempt->status ?? 'unknown')) }}
+                            </span>
+                            @if(isset($attempt->score))
+                                <p class="text-sm font-bold text-gray-700 mt-1">{{ $attempt->score }}%</p>
+                            @endif
+                        </div>
                     </div>
                 @empty
-                    <p class="text-gray-500 text-center py-4">No attempts yet</p>
+                    <div class="text-center py-8">
+                        <div class="text-6xl mb-3">🎯</div>
+                        <p class="text-gray-500 font-medium">No exam attempts yet</p>
+                        <p class="text-gray-400 text-sm mt-1">Student attempts will appear here</p>
+                    </div>
                 @endforelse
+            </div>
+        </div>
+    </div>
+
+    <!-- System Overview (Optional - add at bottom) -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-3">📊 System Health</h3>
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Database</span>
+                    <span class="text-green-600 font-semibold">✓ Online</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Storage</span>
+                    <span class="text-green-600 font-semibold">✓ Available</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Cache</span>
+                    <span class="text-green-600 font-semibold">✓ Active</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-3">🔥 Popular Categories</h3>
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Engineering</span>
+                    <span class="font-semibold text-blue-600">{{ $stats['total_questions'] ?? 0 }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Medical</span>
+                    <span class="font-semibold text-blue-600">0</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Commerce</span>
+                    <span class="font-semibold text-blue-600">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-3">⏰ Upcoming</h3>
+            <div class="space-y-2">
+                <p class="text-sm text-gray-600">Next scheduled exam in:</p>
+                <p class="text-2xl font-bold text-blue-600">2 days</p>
+                <p class="text-xs text-gray-500">Check exams section for details</p>
             </div>
         </div>
     </div>

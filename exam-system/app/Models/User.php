@@ -2,71 +2,59 @@
 
 namespace App\Models;
 
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+    use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
-        'name', 'email', 'mobile', 'password', 'role_id', 'is_active', 'email_verified_at'
+        'name',
+        'email',
+        'password',
+        'role',        // ✅ STRING column (not relationship)
+        'is_active',
     ];
 
-    protected $hidden = ['password', 'remember_token'];
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
 
     protected $casts = [
         'email_verified_at' => 'datetime',
         'is_active' => 'boolean',
+        'password' => 'hashed',
     ];
 
-    // Relationships
-    public function role()
-    {
-        return $this->belongsTo(Role::class);
-    }
-
-    public function student()
-    {
-        return $this->hasOne(Student::class);
-    }
-
-    public function teacher()
-    {
-        return $this->hasOne(Teacher::class);
-    }
-
-    public function parent()
-    {
-        return $this->hasOne(ParentModel::class);
-    }
-
-    // Helper Methods
+    // ✅ FIXED: Role is STRING, not relationship
     public function isAdmin()
     {
-        return $this->role->name === 'admin';
+        return $this->role === 'admin';
     }
 
     public function isTeacher()
     {
-        return $this->role->name === 'teacher';
+        return $this->role === 'teacher';
     }
 
     public function isStudent()
     {
-        return $this->role->name === 'student';
+        return $this->role === 'student';
     }
 
     public function isParent()
     {
-        return $this->role->name === 'parent';
+        return $this->role === 'parent';
     }
 
-    public function hasPermission($permission)
+    // Get role display name
+    public function getRoleNameAttribute()
     {
-        return $this->role->permissions()->where('name', $permission)->exists();
+        return ucfirst($this->role ?? 'student');
     }
 }
