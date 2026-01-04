@@ -210,7 +210,7 @@
                     </label>
                     <div class="relative">
                         <span class="absolute left-4 top-1/2 -translate-y-1/2 text-green-600 font-bold text-lg">+</span>
-                        <input type="number" name="marks" step="0.01" min="0" value="{{ old('marks', 1) }}" required 
+                        <input type="number" name="marks" step="0.01" min="0" value="{{ old('marks', 4) }}" required 
                                class="w-full pl-9 pr-4 py-3 border border-gray-300 rounded-lg 
                                       focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent
                                       transition duration-200 hover:border-gray-400">
