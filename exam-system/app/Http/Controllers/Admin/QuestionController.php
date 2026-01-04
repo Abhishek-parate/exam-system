@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Question;
-use App\Models\QuestionOption;
-use App\Models\ExamCategory;
-use App\Models\Subject;
 use App\Models\Chapter;
-use App\Models\Topic;
+use App\Models\ExamCategory;
+use App\Models\Question;
 use App\Models\QuestionDifficulty;
+use App\Models\QuestionOption;
+use App\Models\Subject;
+use App\Models\Topic;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -62,7 +62,7 @@ class QuestionController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'exam_category_id' => 'required|exists:exam_categories,id',
+            'exam_category_id' => 'nullable|exists:exam_categories,id',
             'subject_id' => 'required|exists:subjects,id',
             'chapter_id' => 'nullable|exists:chapters,id',
             'topic_id' => 'nullable|exists:topics,id',
@@ -80,6 +80,7 @@ class QuestionController extends Controller
         ]);
 
         DB::beginTransaction();
+
         try {
             // Upload question image if provided
             if ($request->hasFile('question_image')) {
@@ -91,11 +92,12 @@ class QuestionController extends Controller
                 $validated['explanation_image'] = $request->file('explanation_image')->store('explanations', 'public');
             }
 
-            // ✅ FIX: Convert empty strings to NULL for nullable fields
+            // Convert empty strings to NULL for nullable fields
+            $validated['exam_category_id'] = !empty($validated['exam_category_id']) ? $validated['exam_category_id'] : null;
             $validated['chapter_id'] = !empty($validated['chapter_id']) ? $validated['chapter_id'] : null;
             $validated['topic_id'] = !empty($validated['topic_id']) ? $validated['topic_id'] : null;
             $validated['explanation'] = !empty($validated['explanation']) ? $validated['explanation'] : null;
-            
+
             $validated['created_by'] = auth()->id();
             $validated['is_active'] = true;
 
@@ -118,13 +120,12 @@ class QuestionController extends Controller
             }
 
             DB::commit();
-
             return redirect()->route('admin.questions.index')
-                           ->with('success', 'Question created successfully!');
+                ->with('success', 'Question created successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Failed to create question: ' . $e->getMessage())
-                        ->withInput();
+                ->withInput();
         }
     }
 
@@ -137,15 +138,23 @@ class QuestionController extends Controller
     public function edit(Question $question)
     {
         $examCategories = ExamCategory::where('is_active', true)->get();
+        
         $subjects = Subject::where('is_active', true)
-                          ->where('exam_category_id', $question->exam_category_id)
-                          ->get();
+            ->when($question->exam_category_id, function($query) use ($question) {
+                return $query->where('exam_category_id', $question->exam_category_id);
+            })
+            ->get();
+
         $chapters = Chapter::where('is_active', true)
-                          ->where('subject_id', $question->subject_id)
-                          ->get();
+            ->where('subject_id', $question->subject_id)
+            ->get();
+
         $topics = Topic::where('is_active', true)
-                      ->where('chapter_id', $question->chapter_id)
-                      ->get();
+            ->when($question->chapter_id, function($query) use ($question) {
+                return $query->where('chapter_id', $question->chapter_id);
+            })
+            ->get();
+
         $difficulties = QuestionDifficulty::all();
 
         $question->load('options');
@@ -156,7 +165,7 @@ class QuestionController extends Controller
     public function update(Request $request, Question $question)
     {
         $validated = $request->validate([
-            'exam_category_id' => 'required|exists:exam_categories,id',
+            'exam_category_id' => 'nullable|exists:exam_categories,id',
             'subject_id' => 'required|exists:subjects,id',
             'chapter_id' => 'nullable|exists:chapters,id',
             'topic_id' => 'nullable|exists:topics,id',
@@ -168,9 +177,15 @@ class QuestionController extends Controller
             'explanation' => 'nullable|string',
             'explanation_image' => 'nullable|image|max:2048',
             'is_active' => 'boolean',
+            // ✅ Added validation for options
+            'options' => 'required|array|min:2',
+            'options.*.text' => 'required|string',
+            'options.*.is_correct' => 'nullable|boolean',
+            'options.*.image' => 'nullable|image|max:2048',
         ]);
 
         DB::beginTransaction();
+
         try {
             // Upload new question image if provided
             if ($request->hasFile('question_image')) {
@@ -188,21 +203,45 @@ class QuestionController extends Controller
                 $validated['explanation_image'] = $request->file('explanation_image')->store('explanations', 'public');
             }
 
-            // ✅ FIX: Convert empty strings to NULL for nullable fields
+            // Convert empty strings to NULL for nullable fields
+            $validated['exam_category_id'] = !empty($validated['exam_category_id']) ? $validated['exam_category_id'] : null;
             $validated['chapter_id'] = !empty($validated['chapter_id']) ? $validated['chapter_id'] : null;
             $validated['topic_id'] = !empty($validated['topic_id']) ? $validated['topic_id'] : null;
             $validated['explanation'] = !empty($validated['explanation']) ? $validated['explanation'] : null;
 
             $question->update($validated);
 
-            DB::commit();
+            // ✅ Delete old options and their images
+            foreach ($question->options as $oldOption) {
+                if ($oldOption->option_image) {
+                    Storage::disk('public')->delete($oldOption->option_image);
+                }
+                $oldOption->delete();
+            }
 
+            // ✅ Create new options
+            foreach ($request->options as $index => $optionData) {
+                $optionImage = null;
+                if (isset($optionData['image']) && $optionData['image'] instanceof \Illuminate\Http\UploadedFile) {
+                    $optionImage = $optionData['image']->store('options', 'public');
+                }
+
+                QuestionOption::create([
+                    'question_id' => $question->id,
+                    'option_key' => chr(65 + $index), // A, B, C, D
+                    'option_text' => $optionData['text'],
+                    'option_image' => $optionImage,
+                    'is_correct' => isset($optionData['is_correct']) ? (bool)$optionData['is_correct'] : false,
+                ]);
+            }
+
+            DB::commit();
             return redirect()->route('admin.questions.index')
-                           ->with('success', 'Question updated successfully!');
+                ->with('success', 'Question updated successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Failed to update question: ' . $e->getMessage())
-                        ->withInput();
+                ->withInput();
         }
     }
 
@@ -213,6 +252,7 @@ class QuestionController extends Controller
             if ($question->question_image) {
                 Storage::disk('public')->delete($question->question_image);
             }
+
             if ($question->explanation_image) {
                 Storage::disk('public')->delete($question->explanation_image);
             }
@@ -227,7 +267,7 @@ class QuestionController extends Controller
             $question->delete();
 
             return redirect()->route('admin.questions.index')
-                           ->with('success', 'Question deleted successfully!');
+                ->with('success', 'Question deleted successfully!');
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to delete question: ' . $e->getMessage());
         }
@@ -237,27 +277,27 @@ class QuestionController extends Controller
     public function getSubjectsByCategory($categoryId)
     {
         $subjects = Subject::where('exam_category_id', $categoryId)
-                          ->where('is_active', true)
-                          ->get(['id', 'name']);
-        
+            ->where('is_active', true)
+            ->get(['id', 'name']);
+
         return response()->json($subjects);
     }
 
     public function getChaptersBySubject($subjectId)
     {
         $chapters = Chapter::where('subject_id', $subjectId)
-                          ->where('is_active', true)
-                          ->get(['id', 'name']);
-        
+            ->where('is_active', true)
+            ->get(['id', 'name']);
+
         return response()->json($chapters);
     }
 
     public function getTopicsByChapter($chapterId)
     {
         $topics = Topic::where('chapter_id', $chapterId)
-                      ->where('is_active', true)
-                      ->get(['id', 'name']);
-        
+            ->where('is_active', true)
+            ->get(['id', 'name']);
+
         return response()->json($topics);
     }
 

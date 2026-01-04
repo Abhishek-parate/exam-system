@@ -4,6 +4,7 @@
 
 @section('content')
 <div class="container mx-auto px-4 py-8 max-w-4xl">
+    <!-- Header -->
     <div class="flex justify-between items-center mb-8">
         <h1 class="text-3xl font-bold text-gray-900">Edit Question #{{ $question->id }}</h1>
         <a href="{{ route('admin.questions.show', $question) }}" class="text-gray-600 hover:text-gray-900">
@@ -18,8 +19,8 @@
         <!-- Category & Subject -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Exam Category *</label>
-                <select name="exam_category_id" id="exam_category_id" required
+                <label class="block text-sm font-medium text-gray-700 mb-2">Exam Category (Optional)</label>
+                <select name="exam_category_id" id="exam_category_id" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                     <option value="">Select Category</option>
                     @foreach($examCategories as $category)
@@ -35,7 +36,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Subject *</label>
-                <select name="subject_id" id="subject_id" required
+                <select name="subject_id" id="subject_id" required 
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                     <option value="">Select Subject</option>
                     @foreach($subjects as $subject)
@@ -48,10 +49,13 @@
                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                 @enderror
             </div>
+        </div>
 
+        <!-- Chapter & Topic -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Chapter (Optional)</label>
-                <select name="chapter_id" id="chapter_id"
+                <select name="chapter_id" id="chapter_id" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                     <option value="">Select Chapter</option>
                     @foreach($chapters as $chapter)
@@ -64,7 +68,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Topic (Optional)</label>
-                <select name="topic_id" id="topic_id"
+                <select name="topic_id" id="topic_id" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                     <option value="">Select Topic</option>
                     @foreach($topics as $topic)
@@ -80,7 +84,7 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Difficulty *</label>
-                <select name="difficulty_id" required
+                <select name="difficulty_id" required 
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                     <option value="">Select Difficulty</option>
                     @foreach($difficulties as $difficulty)
@@ -96,7 +100,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Marks *</label>
-                <input type="number" name="marks" step="0.01" min="0" value="{{ $question->marks }}" required
+                <input type="number" name="marks" step="0.01" min="0" value="{{ $question->marks }}" required 
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                 @error('marks')
                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -105,7 +109,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Negative Marks *</label>
-                <input type="number" name="negative_marks" step="0.01" min="0" value="{{ $question->negative_marks }}" required
+                <input type="number" name="negative_marks" step="0.01" min="0" value="{{ $question->negative_marks }}" required 
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                 @error('negative_marks')
                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -132,36 +136,48 @@
                     <p class="text-sm text-gray-600 mt-2">Current image (will be replaced if you upload a new one)</p>
                 </div>
             @endif
-            <input type="file" name="question_image" accept="image/*"
+            <input type="file" name="question_image" accept="image/*" 
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
             @error('question_image')
                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
             @enderror
         </div>
 
-        <!-- Note about Options -->
-        <div class="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded">
-            <p class="text-sm text-yellow-800">
-                ⚠️ <strong>Note:</strong> To edit answer options, please delete this question and create a new one. Option editing will be available in a future update.
-            </p>
-        </div>
-
-        <!-- Display Current Options (Read-only) -->
+        <!-- ✅ Editable Answer Options with Quill Editor -->
         <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-4">Current Answer Options (Read-only)</label>
-            @foreach($question->options as $option)
-                <div class="mb-3 p-4 border border-gray-200 rounded-lg {{ $option->is_correct ? 'bg-green-50' : 'bg-gray-50' }}">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="font-semibold text-gray-700 text-lg">Option {{ $option->option_key }}</span>
-                        @if($option->is_correct)
-                            <span class="px-3 py-1 bg-green-500 text-white rounded-full text-xs font-bold">✓ CORRECT</span>
-                        @endif
-                    </div>
-                    <div class="prose max-w-none">
-                        {!! $option->option_text !!}
-                    </div>
+            <label class="block text-sm font-medium text-gray-700 mb-4">Answer Options *</label>
+            
+            @php
+                $existingOptions = $question->options->sortBy('option_key');
+            @endphp
+
+            @for($i = 0; $i < 4; $i++)
+            @php
+                $existingOption = $existingOptions->skip($i)->first();
+            @endphp
+            <div class="mb-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <div class="flex justify-between items-center mb-3">
+                    <label class="font-semibold text-gray-700 text-lg">Option {{ chr(65 + $i) }}</label>
+                    <label class="flex items-center px-4 py-2 bg-green-100 rounded-lg cursor-pointer hover:bg-green-200 transition">
+                        <input type="checkbox" name="options[{{ $i }}][is_correct]" value="1" 
+                               {{ $existingOption && $existingOption->is_correct ? 'checked' : '' }}
+                               class="mr-2 w-4 h-4">
+                        <span class="text-sm font-medium text-green-800">✓ Correct Answer</span>
+                    </label>
                 </div>
-            @endforeach
+                <div id="option_editor_{{ $i }}" class="bg-white border border-gray-300 rounded-lg" style="min-height: 150px;"></div>
+                <input type="hidden" name="options[{{ $i }}][text]" id="option_text_{{ $i }}" required>
+                
+                @if($existingOption && $existingOption->option_image)
+                    <div class="mt-3">
+                        <img src="{{ Storage::url($existingOption->option_image) }}" alt="Option Image" class="max-w-xs rounded shadow">
+                        <p class="text-xs text-gray-500 mt-1">Existing image (upload new to replace)</p>
+                    </div>
+                @endif
+            </div>
+            @endfor
+
+            <p class="text-xs text-gray-500 mt-2">✓ Check the box next to the correct answer(s)</p>
         </div>
 
         <!-- Explanation with Quill Editor -->
@@ -180,7 +196,7 @@
                     <p class="text-sm text-gray-600 mt-2">Current image (will be replaced if you upload a new one)</p>
                 </div>
             @endif
-            <input type="file" name="explanation_image" accept="image/*"
+            <input type="file" name="explanation_image" accept="image/*" 
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
             @error('explanation_image')
                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -209,6 +225,9 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+
 <script>
 // Initialize Quill for Question Text with existing content
 var questionQuill = new Quill('#question_editor', {
@@ -231,6 +250,31 @@ var questionQuill = new Quill('#question_editor', {
 
 // Set existing question text
 questionQuill.root.innerHTML = {!! json_encode($question->question_text) !!};
+
+// ✅ Initialize Quill for Options with existing content
+var optionQuills = [];
+var existingOptions = {!! json_encode($question->options->sortBy('option_key')->values()) !!};
+
+for (let i = 0; i < 4; i++) {
+    optionQuills[i] = new Quill('#option_editor_' + i, {
+        theme: 'snow',
+        placeholder: 'Enter option ' + String.fromCharCode(65 + i) + ' text...',
+        modules: {
+            toolbar: [
+                ['bold', 'italic', 'underline'],
+                [{ 'color': [] }, { 'background': [] }],
+                [{ 'script': 'sub'}, { 'script': 'super' }],
+                ['link', 'image'],
+                ['clean']
+            ]
+        }
+    });
+
+    // ✅ Set existing option text
+    if (existingOptions[i] && existingOptions[i].option_text) {
+        optionQuills[i].root.innerHTML = existingOptions[i].option_text;
+    }
+}
 
 // Initialize Quill for Explanation with existing content
 var explanationQuill = new Quill('#explanation_editor', {
@@ -257,18 +301,39 @@ document.getElementById('questionForm').addEventListener('submit', function(e) {
     // Get question text
     var questionHTML = questionQuill.root.innerHTML;
     document.getElementById('question_text').value = questionHTML;
-    
+
     // Validate question text is not empty
     if (questionQuill.getText().trim().length === 0) {
         e.preventDefault();
         alert('Please enter question text');
         return false;
     }
-    
+
+    // ✅ Get options text
+    for (let i = 0; i < 4; i++) {
+        var optionHTML = optionQuills[i].root.innerHTML;
+        document.getElementById('option_text_' + i).value = optionHTML;
+
+        // Validate option is not empty
+        if (optionQuills[i].getText().trim().length === 0) {
+            e.preventDefault();
+            alert('Please enter text for Option ' + String.fromCharCode(65 + i));
+            return false;
+        }
+    }
+
     // Get explanation text (optional)
     var explanationHTML = explanationQuill.root.innerHTML;
     document.getElementById('explanation').value = explanationHTML;
-    
+
+    // ✅ Check if at least one correct answer is selected
+    var checkboxes = document.querySelectorAll('input[name*="is_correct"]:checked');
+    if (checkboxes.length === 0) {
+        e.preventDefault();
+        alert('Please select at least one correct answer');
+        return false;
+    }
+
     return true;
 });
 
@@ -296,6 +361,7 @@ document.getElementById('exam_category_id').addEventListener('change', function(
         subjectSelect.innerHTML = '<option value="">Select Subject</option>';
     }
     
+    // Reset dependent dropdowns
     document.getElementById('chapter_id').innerHTML = '<option value="">Select Chapter</option>';
     document.getElementById('topic_id').innerHTML = '<option value="">Select Topic</option>';
 });
@@ -307,6 +373,7 @@ document.getElementById('subject_id').addEventListener('change', function() {
     
     if (subjectId) {
         chapterSelect.innerHTML = '<option value="">Loading...</option>';
+        
         fetch(`/admin/questions/chapters/${subjectId}`)
             .then(response => response.json())
             .then(data => {
@@ -323,6 +390,7 @@ document.getElementById('subject_id').addEventListener('change', function() {
         chapterSelect.innerHTML = '<option value="">Select Chapter</option>';
     }
     
+    // Reset topic dropdown
     document.getElementById('topic_id').innerHTML = '<option value="">Select Topic</option>';
 });
 
@@ -333,6 +401,7 @@ document.getElementById('chapter_id').addEventListener('change', function() {
     
     if (chapterId) {
         topicSelect.innerHTML = '<option value="">Loading...</option>';
+        
         fetch(`/admin/questions/topics/${chapterId}`)
             .then(response => response.json())
             .then(data => {

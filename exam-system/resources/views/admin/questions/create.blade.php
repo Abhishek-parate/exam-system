@@ -4,6 +4,7 @@
 
 @section('content')
 <div class="container mx-auto px-4 py-8 max-w-4xl">
+    <!-- Header -->
     <div class="flex justify-between items-center mb-8">
         <h1 class="text-3xl font-bold text-gray-900">Add New Question</h1>
         <a href="{{ route('admin.questions.index') }}" class="text-gray-600 hover:text-gray-900">
@@ -17,8 +18,8 @@
         <!-- Category & Subject -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Exam Category *</label>
-                <select name="exam_category_id" id="exam_category_id" required
+                <label class="block text-sm font-medium text-gray-700 mb-2">Exam Category (Optional)</label>
+                <select name="exam_category_id" id="exam_category_id" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                     <option value="">Select Category</option>
                     @foreach($examCategories as $category)
@@ -32,7 +33,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Subject *</label>
-                <select name="subject_id" id="subject_id" required
+                <select name="subject_id" id="subject_id" required 
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                     <option value="">Select Subject</option>
                 </select>
@@ -40,10 +41,13 @@
                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                 @enderror
             </div>
+        </div>
 
+        <!-- Chapter & Topic -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Chapter (Optional)</label>
-                <select name="chapter_id" id="chapter_id"
+                <select name="chapter_id" id="chapter_id" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                     <option value="">Select Chapter</option>
                 </select>
@@ -51,7 +55,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Topic (Optional)</label>
-                <select name="topic_id" id="topic_id"
+                <select name="topic_id" id="topic_id" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                     <option value="">Select Topic</option>
                 </select>
@@ -62,7 +66,7 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Difficulty *</label>
-                <select name="difficulty_id" required
+                <select name="difficulty_id" required 
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                     <option value="">Select Difficulty</option>
                     @foreach($difficulties as $difficulty)
@@ -76,7 +80,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Marks *</label>
-                <input type="number" name="marks" step="0.01" min="0" value="1" required
+                <input type="number" name="marks" step="0.01" min="0" value="1" required 
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                 @error('marks')
                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -85,7 +89,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Negative Marks *</label>
-                <input type="number" name="negative_marks" step="0.01" min="0" value="0" required
+                <input type="number" name="negative_marks" step="0.01" min="0" value="0" required 
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                 @error('negative_marks')
                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -106,7 +110,7 @@
         <!-- Question Image (Optional) -->
         <div class="mb-6">
             <label class="block text-sm font-medium text-gray-700 mb-2">Question Image (Optional)</label>
-            <input type="file" name="question_image" accept="image/*"
+            <input type="file" name="question_image" accept="image/*" 
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
             @error('question_image')
                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -116,19 +120,21 @@
         <!-- Answer Options with Quill Editor -->
         <div class="mb-6">
             <label class="block text-sm font-medium text-gray-700 mb-4">Answer Options *</label>
+            
             @for($i = 0; $i < 4; $i++)
-                <div class="mb-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
-                    <div class="flex justify-between items-center mb-3">
-                        <label class="font-semibold text-gray-700 text-lg">Option {{ chr(65 + $i) }}</label>
-                        <label class="flex items-center px-4 py-2 bg-green-100 rounded-lg cursor-pointer hover:bg-green-200 transition">
-                            <input type="checkbox" name="options[{{ $i }}][is_correct]" value="1" class="mr-2 w-4 h-4">
-                            <span class="text-sm font-medium text-green-800">✓ Correct Answer</span>
-                        </label>
-                    </div>
-                    <div id="option_editor_{{ $i }}" class="bg-white border border-gray-300 rounded-lg" style="min-height: 150px;"></div>
-                    <input type="hidden" name="options[{{ $i }}][text]" id="option_text_{{ $i }}" required>
+            <div class="mb-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <div class="flex justify-between items-center mb-3">
+                    <label class="font-semibold text-gray-700 text-lg">Option {{ chr(65 + $i) }}</label>
+                    <label class="flex items-center px-4 py-2 bg-green-100 rounded-lg cursor-pointer hover:bg-green-200 transition">
+                        <input type="checkbox" name="options[{{ $i }}][is_correct]" value="1" class="mr-2 w-4 h-4">
+                        <span class="text-sm font-medium text-green-800">✓ Correct Answer</span>
+                    </label>
                 </div>
+                <div id="option_editor_{{ $i }}" class="bg-white border border-gray-300 rounded-lg" style="min-height: 150px;"></div>
+                <input type="hidden" name="options[{{ $i }}][text]" id="option_text_{{ $i }}" required>
+            </div>
             @endfor
+
             <p class="text-xs text-gray-500 mt-2">✓ Check the box next to the correct answer(s)</p>
         </div>
 
@@ -137,6 +143,16 @@
             <label class="block text-sm font-medium text-gray-700 mb-2">Explanation (Optional)</label>
             <div id="explanation_editor" class="bg-white border border-gray-300 rounded-lg" style="min-height: 200px;"></div>
             <input type="hidden" name="explanation" id="explanation">
+        </div>
+
+        <!-- Explanation Image (Optional) -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Explanation Image (Optional)</label>
+            <input type="file" name="explanation_image" accept="image/*" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+            @error('explanation_image')
+                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+            @enderror
         </div>
 
         <!-- Submit Buttons -->
@@ -153,6 +169,9 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+
 <script>
 // Initialize Quill for Question Text
 var questionQuill = new Quill('#question_editor', {
@@ -211,19 +230,19 @@ document.getElementById('questionForm').addEventListener('submit', function(e) {
     // Get question text
     var questionHTML = questionQuill.root.innerHTML;
     document.getElementById('question_text').value = questionHTML;
-    
+
     // Validate question text is not empty
     if (questionQuill.getText().trim().length === 0) {
         e.preventDefault();
         alert('Please enter question text');
         return false;
     }
-    
+
     // Get options text
     for (let i = 0; i < 4; i++) {
         var optionHTML = optionQuills[i].root.innerHTML;
         document.getElementById('option_text_' + i).value = optionHTML;
-        
+
         // Validate option is not empty
         if (optionQuills[i].getText().trim().length === 0) {
             e.preventDefault();
@@ -231,11 +250,11 @@ document.getElementById('questionForm').addEventListener('submit', function(e) {
             return false;
         }
     }
-    
+
     // Get explanation text (optional)
     var explanationHTML = explanationQuill.root.innerHTML;
     document.getElementById('explanation').value = explanationHTML;
-    
+
     // Check if at least one correct answer is selected
     var checkboxes = document.querySelectorAll('input[name*="is_correct"]:checked');
     if (checkboxes.length === 0) {
@@ -243,7 +262,7 @@ document.getElementById('questionForm').addEventListener('submit', function(e) {
         alert('Please select at least one correct answer');
         return false;
     }
-    
+
     return true;
 });
 
@@ -271,6 +290,7 @@ document.getElementById('exam_category_id').addEventListener('change', function(
         subjectSelect.innerHTML = '<option value="">Select Subject</option>';
     }
     
+    // Reset dependent dropdowns
     document.getElementById('chapter_id').innerHTML = '<option value="">Select Chapter</option>';
     document.getElementById('topic_id').innerHTML = '<option value="">Select Topic</option>';
 });
@@ -282,6 +302,7 @@ document.getElementById('subject_id').addEventListener('change', function() {
     
     if (subjectId) {
         chapterSelect.innerHTML = '<option value="">Loading...</option>';
+        
         fetch(`/admin/questions/chapters/${subjectId}`)
             .then(response => response.json())
             .then(data => {
@@ -298,6 +319,7 @@ document.getElementById('subject_id').addEventListener('change', function() {
         chapterSelect.innerHTML = '<option value="">Select Chapter</option>';
     }
     
+    // Reset topic dropdown
     document.getElementById('topic_id').innerHTML = '<option value="">Select Topic</option>';
 });
 
@@ -308,6 +330,7 @@ document.getElementById('chapter_id').addEventListener('change', function() {
     
     if (chapterId) {
         topicSelect.innerHTML = '<option value="">Loading...</option>';
+        
         fetch(`/admin/questions/topics/${chapterId}`)
             .then(response => response.json())
             .then(data => {

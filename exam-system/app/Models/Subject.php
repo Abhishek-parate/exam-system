@@ -9,7 +9,13 @@ class Subject extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['exam_category_id', 'name', 'code', 'is_active'];
+    protected $fillable = [
+        'exam_category_id',
+        'name',
+        'code',
+        'description',
+        'is_active',
+    ];
 
     protected $casts = [
         'is_active' => 'boolean',

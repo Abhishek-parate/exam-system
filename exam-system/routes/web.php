@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboard;
 use App\Http\Controllers\Admin\QuestionController;
+use App\Http\Controllers\Admin\SubjectController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ExamController as AdminExamController;
 use App\Http\Controllers\Teacher\DashboardController as TeacherDashboard;
@@ -38,9 +39,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     // Dashboard
     Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard');
     
+    // ✅ Subject Management (New)
+    Route::resource('subjects', SubjectController::class);
+    
     // Question Management
     Route::resource('questions', QuestionController::class);
     Route::post('questions/import', [QuestionController::class, 'bulkImport'])->name('questions.import');
+    
+    // AJAX routes for dynamic dropdowns
     Route::get('questions/subjects/{category}', [QuestionController::class, 'getSubjectsByCategory']);
     Route::get('questions/chapters/{subject}', [QuestionController::class, 'getChaptersBySubject']);
     Route::get('questions/topics/{chapter}', [QuestionController::class, 'getTopicsByChapter']);
@@ -105,7 +111,7 @@ Route::prefix('student')->name('student.')->middleware(['auth', 'role:student'])
     Route::get('exams/{attemptToken}/status', [ExamAttemptController::class, 'getStatus'])->name('exams.status');
     Route::post('exams/{attemptToken}/submit', [ExamAttemptController::class, 'submit'])->name('exams.submit');
     
-    // NEW: Results and Profile
+    // Results and Profile
     Route::get('results', [StudentDashboard::class, 'results'])->name('results');
     Route::get('profile', [StudentDashboard::class, 'profile'])->name('profile');
 });
