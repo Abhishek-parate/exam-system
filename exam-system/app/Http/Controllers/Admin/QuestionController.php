@@ -54,10 +54,13 @@ class QuestionController extends Controller
     public function create()
     {
         $examCategories = ExamCategory::where('is_active', true)->get();
+        $subjects = Subject::where('is_active', true)->get(); // ✅ ADD THIS LINE
         $difficulties = QuestionDifficulty::all();
-
-        return view('admin.questions.create', compact('examCategories', 'difficulties'));
+        
+        return view('admin.questions.create', compact('examCategories', 'subjects', 'difficulties'));
     }
+
+
 
     public function store(Request $request)
     {

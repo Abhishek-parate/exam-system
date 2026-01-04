@@ -39,17 +39,17 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     // Dashboard
     Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard');
     
-    // ✅ Subject Management (New)
+    // ✅ Subject Management
     Route::resource('subjects', SubjectController::class);
     
-    // Question Management
+    // ✅ AJAX routes for dynamic dropdowns (MUST be before resource routes)
+    Route::get('questions/subjects/{category}', [QuestionController::class, 'getSubjectsByCategory'])->name('questions.subjects');
+    Route::get('questions/chapters/{subject}', [QuestionController::class, 'getChaptersBySubject'])->name('questions.chapters');
+    Route::get('questions/topics/{chapter}', [QuestionController::class, 'getTopicsByChapter'])->name('questions.topics');
+    
+    // Question Management (Resource routes)
     Route::resource('questions', QuestionController::class);
     Route::post('questions/import', [QuestionController::class, 'bulkImport'])->name('questions.import');
-    
-    // AJAX routes for dynamic dropdowns
-    Route::get('questions/subjects/{category}', [QuestionController::class, 'getSubjectsByCategory']);
-    Route::get('questions/chapters/{subject}', [QuestionController::class, 'getChaptersBySubject']);
-    Route::get('questions/topics/{chapter}', [QuestionController::class, 'getTopicsByChapter']);
     
     // User Management
     Route::resource('users', UserController::class);

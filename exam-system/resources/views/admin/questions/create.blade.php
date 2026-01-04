@@ -12,6 +12,12 @@
         </a>
     </div>
 
+    @if(session('error'))
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {{ session('error') }}
+        </div>
+    @endif
+
     <form method="POST" action="{{ route('admin.questions.store') }}" enctype="multipart/form-data" class="bg-white rounded-lg shadow-md p-8" id="questionForm">
         @csrf
 
@@ -23,7 +29,9 @@
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                     <option value="">Select Category</option>
                     @foreach($examCategories as $category)
-                        <option value="{{ $category->id }}">{{ $category->name }}</option>
+                        <option value="{{ $category->id }}" {{ old('exam_category_id') == $category->id ? 'selected' : '' }}>
+                            {{ $category->name }}
+                        </option>
                     @endforeach
                 </select>
                 @error('exam_category_id')
@@ -36,6 +44,11 @@
                 <select name="subject_id" id="subject_id" required 
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                     <option value="">Select Subject</option>
+                    @foreach($subjects as $subject)
+                        <option value="{{ $subject->id }}" {{ old('subject_id') == $subject->id ? 'selected' : '' }}>
+                            {{ $subject->name }}
+                        </option>
+                    @endforeach
                 </select>
                 @error('subject_id')
                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -70,7 +83,9 @@
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                     <option value="">Select Difficulty</option>
                     @foreach($difficulties as $difficulty)
-                        <option value="{{ $difficulty->id }}">{{ $difficulty->name }}</option>
+                        <option value="{{ $difficulty->id }}" {{ old('difficulty_id') == $difficulty->id ? 'selected' : '' }}>
+                            {{ $difficulty->name }}
+                        </option>
                     @endforeach
                 </select>
                 @error('difficulty_id')
@@ -80,7 +95,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Marks *</label>
-                <input type="number" name="marks" step="0.01" min="0" value="1" required 
+                <input type="number" name="marks" step="0.01" min="0" value="{{ old('marks', 1) }}" required 
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                 @error('marks')
                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -89,7 +104,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Negative Marks *</label>
-                <input type="number" name="negative_marks" step="0.01" min="0" value="0" required 
+                <input type="number" name="negative_marks" step="0.01" min="0" value="{{ old('negative_marks', 0) }}" required 
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                 @error('negative_marks')
                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -102,6 +117,7 @@
             <label class="block text-sm font-medium text-gray-700 mb-2">Question Text *</label>
             <div id="question_editor" class="bg-white border border-gray-300 rounded-lg" style="min-height: 300px;"></div>
             <input type="hidden" name="question_text" id="question_text" required>
+            <p class="text-xs text-gray-500 mt-1">You can add text, images, formulas, and formatting</p>
             @error('question_text')
                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
             @enderror
@@ -112,6 +128,7 @@
             <label class="block text-sm font-medium text-gray-700 mb-2">Question Image (Optional)</label>
             <input type="file" name="question_image" accept="image/*" 
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+            <p class="text-xs text-gray-500 mt-1">You can also insert images directly in the editor above</p>
             @error('question_image')
                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
             @enderror
@@ -173,179 +190,226 @@
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 
 <script>
-// Initialize Quill for Question Text
-var questionQuill = new Quill('#question_editor', {
-    theme: 'snow',
-    placeholder: 'Enter the question text here...',
-    modules: {
-        toolbar: [
-            [{ 'header': [1, 2, 3, false] }],
-            ['bold', 'italic', 'underline', 'strike'],
-            [{ 'color': [] }, { 'background': [] }],
-            [{ 'script': 'sub'}, { 'script': 'super' }],
-            ['blockquote', 'code-block'],
-            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-            [{ 'align': [] }],
-            ['link', 'image'],
-            ['clean']
-        ]
-    }
-});
-
-// Initialize Quill for Options
-var optionQuills = [];
-for (let i = 0; i < 4; i++) {
-    optionQuills[i] = new Quill('#option_editor_' + i, {
+document.addEventListener('DOMContentLoaded', function() {
+    // ============================================
+    // Initialize Quill Editors
+    // ============================================
+    
+    // Initialize Quill for Question Text
+    var questionQuill = new Quill('#question_editor', {
         theme: 'snow',
-        placeholder: 'Enter option ' + String.fromCharCode(65 + i) + ' text...',
+        placeholder: 'Enter the question text here...',
         modules: {
             toolbar: [
-                ['bold', 'italic', 'underline'],
+                [{ 'header': [1, 2, 3, false] }],
+                ['bold', 'italic', 'underline', 'strike'],
                 [{ 'color': [] }, { 'background': [] }],
                 [{ 'script': 'sub'}, { 'script': 'super' }],
+                ['blockquote', 'code-block'],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                [{ 'align': [] }],
                 ['link', 'image'],
                 ['clean']
             ]
         }
     });
-}
 
-// Initialize Quill for Explanation
-var explanationQuill = new Quill('#explanation_editor', {
-    theme: 'snow',
-    placeholder: 'Explain the correct answer (optional)...',
-    modules: {
-        toolbar: [
-            ['bold', 'italic', 'underline'],
-            [{ 'color': [] }],
-            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-            ['link', 'image'],
-            ['clean']
-        ]
-    }
-});
-
-// Sync Quill content to hidden inputs on form submit
-document.getElementById('questionForm').addEventListener('submit', function(e) {
-    // Get question text
-    var questionHTML = questionQuill.root.innerHTML;
-    document.getElementById('question_text').value = questionHTML;
-
-    // Validate question text is not empty
-    if (questionQuill.getText().trim().length === 0) {
-        e.preventDefault();
-        alert('Please enter question text');
-        return false;
-    }
-
-    // Get options text
+    // Initialize Quill for Options
+    var optionQuills = [];
     for (let i = 0; i < 4; i++) {
-        var optionHTML = optionQuills[i].root.innerHTML;
-        document.getElementById('option_text_' + i).value = optionHTML;
+        optionQuills[i] = new Quill('#option_editor_' + i, {
+            theme: 'snow',
+            placeholder: 'Enter option ' + String.fromCharCode(65 + i) + ' text...',
+            modules: {
+                toolbar: [
+                    ['bold', 'italic', 'underline'],
+                    [{ 'color': [] }, { 'background': [] }],
+                    [{ 'script': 'sub'}, { 'script': 'super' }],
+                    ['link', 'image'],
+                    ['clean']
+                ]
+            }
+        });
+    }
 
-        // Validate option is not empty
-        if (optionQuills[i].getText().trim().length === 0) {
+    // Initialize Quill for Explanation
+    var explanationQuill = new Quill('#explanation_editor', {
+        theme: 'snow',
+        placeholder: 'Explain the correct answer (optional)...',
+        modules: {
+            toolbar: [
+                ['bold', 'italic', 'underline'],
+                [{ 'color': [] }],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                ['link', 'image'],
+                ['clean']
+            ]
+        }
+    });
+
+    // ============================================
+    // Helper Function to Check if Editor Has Content
+    // ============================================
+    function hasContent(quill) {
+        // Get plain text (without HTML tags)
+        var text = quill.getText().trim();
+        
+        // Get HTML content
+        var html = quill.root.innerHTML.trim();
+        
+        // Check if there's text OR if there's an image/embed
+        // Images show as <img> tags, even if no text
+        var hasText = text.length > 0;
+        var hasImage = html.includes('<img') || html.includes('<iframe') || html.includes('<video');
+        
+        return hasText || hasImage;
+    }
+
+    // ============================================
+    // Form Submission & Validation
+    // ============================================
+    
+    document.getElementById('questionForm').addEventListener('submit', function(e) {
+        // Get question HTML content
+        var questionHTML = questionQuill.root.innerHTML;
+        document.getElementById('question_text').value = questionHTML;
+
+        // ✅ FIXED: Validate question has content (text OR image)
+        if (!hasContent(questionQuill)) {
             e.preventDefault();
-            alert('Please enter text for Option ' + String.fromCharCode(65 + i));
+            alert('Please enter question text or insert an image');
             return false;
         }
-    }
 
-    // Get explanation text (optional)
-    var explanationHTML = explanationQuill.root.innerHTML;
-    document.getElementById('explanation').value = explanationHTML;
+        // Get options text and validate
+        for (let i = 0; i < 4; i++) {
+            var optionHTML = optionQuills[i].root.innerHTML;
+            document.getElementById('option_text_' + i).value = optionHTML;
 
-    // Check if at least one correct answer is selected
-    var checkboxes = document.querySelectorAll('input[name*="is_correct"]:checked');
-    if (checkboxes.length === 0) {
-        e.preventDefault();
-        alert('Please select at least one correct answer');
-        return false;
-    }
+            // ✅ FIXED: Validate option has content (text OR image)
+            if (!hasContent(optionQuills[i])) {
+                e.preventDefault();
+                alert('Please enter text or insert an image for Option ' + String.fromCharCode(65 + i));
+                return false;
+            }
+        }
 
-    return true;
-});
+        // Get explanation text (optional)
+        var explanationHTML = explanationQuill.root.innerHTML;
+        document.getElementById('explanation').value = explanationHTML;
 
-// Dynamic dropdowns for Category -> Subject
-document.getElementById('exam_category_id').addEventListener('change', function() {
-    const categoryId = this.value;
+        // Check if at least one correct answer is selected
+        var checkboxes = document.querySelectorAll('input[name*="is_correct"]:checked');
+        if (checkboxes.length === 0) {
+            e.preventDefault();
+            alert('Please select at least one correct answer');
+            return false;
+        }
+
+        return true;
+    });
+
+    // ============================================
+    // Dynamic Dropdowns with AJAX
+    // ============================================
+    
+    const categorySelect = document.getElementById('exam_category_id');
     const subjectSelect = document.getElementById('subject_id');
-    
-    subjectSelect.innerHTML = '<option value="">Loading...</option>';
-    
-    if (categoryId) {
-        fetch(`/admin/questions/subjects/${categoryId}`)
-            .then(response => response.json())
-            .then(data => {
-                subjectSelect.innerHTML = '<option value="">Select Subject</option>';
-                data.forEach(subject => {
-                    subjectSelect.innerHTML += `<option value="${subject.id}">${subject.name}</option>`;
-                });
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                subjectSelect.innerHTML = '<option value="">Error loading subjects</option>';
-            });
-    } else {
-        subjectSelect.innerHTML = '<option value="">Select Subject</option>';
-    }
-    
-    // Reset dependent dropdowns
-    document.getElementById('chapter_id').innerHTML = '<option value="">Select Chapter</option>';
-    document.getElementById('topic_id').innerHTML = '<option value="">Select Topic</option>';
-});
-
-// Dynamic dropdowns for Subject -> Chapter
-document.getElementById('subject_id').addEventListener('change', function() {
-    const subjectId = this.value;
     const chapterSelect = document.getElementById('chapter_id');
-    
-    if (subjectId) {
-        chapterSelect.innerHTML = '<option value="">Loading...</option>';
-        
-        fetch(`/admin/questions/chapters/${subjectId}`)
-            .then(response => response.json())
-            .then(data => {
-                chapterSelect.innerHTML = '<option value="">Select Chapter</option>';
-                data.forEach(chapter => {
-                    chapterSelect.innerHTML += `<option value="${chapter.id}">${chapter.name}</option>`;
-                });
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                chapterSelect.innerHTML = '<option value="">Error loading chapters</option>';
-            });
-    } else {
-        chapterSelect.innerHTML = '<option value="">Select Chapter</option>';
-    }
-    
-    // Reset topic dropdown
-    document.getElementById('topic_id').innerHTML = '<option value="">Select Topic</option>';
-});
-
-// Dynamic dropdowns for Chapter -> Topic
-document.getElementById('chapter_id').addEventListener('change', function() {
-    const chapterId = this.value;
     const topicSelect = document.getElementById('topic_id');
     
-    if (chapterId) {
-        topicSelect.innerHTML = '<option value="">Loading...</option>';
+    // Store all subjects for filtering
+    const allSubjects = @json($subjects);
+    
+    // Category change event - filter subjects or show all
+    categorySelect.addEventListener('change', function() {
+        const categoryId = this.value;
         
-        fetch(`/admin/questions/topics/${chapterId}`)
-            .then(response => response.json())
-            .then(data => {
-                topicSelect.innerHTML = '<option value="">Select Topic</option>';
-                data.forEach(topic => {
-                    topicSelect.innerHTML += `<option value="${topic.id}">${topic.name}</option>`;
+        if (categoryId) {
+            // Fetch subjects for selected category via AJAX
+            subjectSelect.innerHTML = '<option value="">Loading...</option>';
+            
+            fetch(`/admin/questions/subjects/${categoryId}`)
+                .then(response => response.json())
+                .then(subjects => {
+                    subjectSelect.innerHTML = '<option value="">Select Subject</option>';
+                    subjects.forEach(subject => {
+                        subjectSelect.innerHTML += `<option value="${subject.id}">${subject.name}</option>`;
+                    });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // Fallback to all subjects if error
+                    loadAllSubjects();
                 });
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                topicSelect.innerHTML = '<option value="">Error loading topics</option>';
-            });
-    } else {
+        } else {
+            // No category selected, show all subjects
+            loadAllSubjects();
+        }
+        
+        // Reset dependent dropdowns
+        chapterSelect.innerHTML = '<option value="">Select Chapter</option>';
         topicSelect.innerHTML = '<option value="">Select Topic</option>';
+    });
+    
+    // Helper function to load all subjects
+    function loadAllSubjects() {
+        subjectSelect.innerHTML = '<option value="">Select Subject</option>';
+        allSubjects.forEach(subject => {
+            subjectSelect.innerHTML += `<option value="${subject.id}">${subject.name}</option>`;
+        });
     }
+    
+    // Subject change event - fetch chapters
+    subjectSelect.addEventListener('change', function() {
+        const subjectId = this.value;
+        
+        if (subjectId) {
+            chapterSelect.innerHTML = '<option value="">Loading...</option>';
+            
+            fetch(`/admin/questions/chapters/${subjectId}`)
+                .then(response => response.json())
+                .then(chapters => {
+                    chapterSelect.innerHTML = '<option value="">Select Chapter</option>';
+                    chapters.forEach(chapter => {
+                        chapterSelect.innerHTML += `<option value="${chapter.id}">${chapter.name}</option>`;
+                    });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    chapterSelect.innerHTML = '<option value="">Error loading chapters</option>';
+                });
+        } else {
+            chapterSelect.innerHTML = '<option value="">Select Chapter</option>';
+        }
+        
+        // Reset topic dropdown
+        topicSelect.innerHTML = '<option value="">Select Topic</option>';
+    });
+    
+    // Chapter change event - fetch topics
+    chapterSelect.addEventListener('change', function() {
+        const chapterId = this.value;
+        
+        if (chapterId) {
+            topicSelect.innerHTML = '<option value="">Loading...</option>';
+            
+            fetch(`/admin/questions/topics/${chapterId}`)
+                .then(response => response.json())
+                .then(topics => {
+                    topicSelect.innerHTML = '<option value="">Select Topic</option>';
+                    topics.forEach(topic => {
+                        topicSelect.innerHTML += `<option value="${topic.id}">${topic.name}</option>`;
+                    });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    topicSelect.innerHTML = '<option value="">Error loading topics</option>';
+                });
+        } else {
+            topicSelect.innerHTML = '<option value="">Select Topic</option>';
+        }
+    });
 });
 </script>
 @endpush
