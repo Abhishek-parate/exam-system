@@ -1,4 +1,5 @@
 <?php
+// app/Models/Exam.php
 
 namespace App\Models;
 
@@ -12,11 +13,27 @@ class Exam extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'title', 'exam_code', 'exam_category_id', 'description',
-        'duration_minutes', 'total_questions', 'total_marks',
-        'randomize_questions', 'randomize_options', 'show_results_immediately',
-        'start_time', 'end_time', 'result_release_time',
-        'allow_resume', 'is_active', 'created_by'
+        'title',
+        'exam_code',              // ✅ THIS WAS MISSING!
+        'exam_category_id',
+        'school_class_id',         // ✅ THIS WAS MISSING!
+        'description',
+        'duration_minutes',
+        'total_questions',
+        'passing_marks',           // ✅ THIS WAS MISSING!
+        'total_marks',
+        'randomize_questions',
+        'randomize_options',
+        'show_results_immediately',
+        'start_time',
+        'end_time',
+        'result_release_time',
+        'allow_resume',
+        'marks_correct',           // ✅ THIS WAS MISSING!
+        'marks_wrong',             // ✅ THIS WAS MISSING!
+        'is_active',
+        'created_by',
+        'assigned_teacher_id',     // ✅ THIS WAS MISSING!
     ];
 
     protected $casts = [
@@ -29,11 +46,20 @@ class Exam extends Model
         'allow_resume' => 'boolean',
         'is_active' => 'boolean',
         'total_marks' => 'decimal:2',
+        'passing_marks' => 'decimal:2',
+        'marks_correct' => 'decimal:2',
+        'marks_wrong' => 'decimal:2',
     ];
 
+    // Relationships
     public function examCategory()
     {
         return $this->belongsTo(ExamCategory::class);
+    }
+
+    public function schoolClass()
+    {
+        return $this->belongsTo(SchoolClass::class);
     }
 
     public function creator()
@@ -41,11 +67,16 @@ class Exam extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function assignedTeacher()
+    {
+        return $this->belongsTo(Teacher::class, 'assigned_teacher_id');
+    }
+
     public function questions()
     {
         return $this->belongsToMany(Question::class, 'exam_questions')
-                    ->withPivot('display_order')
-                    ->orderBy('display_order');
+            ->withPivot('display_order')
+            ->orderBy('display_order');
     }
 
     public function markingSchemes()
@@ -56,8 +87,8 @@ class Exam extends Model
     public function enrolledStudents()
     {
         return $this->belongsToMany(Student::class, 'exam_students')
-                    ->withPivot('is_enrolled')
-                    ->withTimestamps();
+            ->withPivot('is_enrolled')
+            ->withTimestamps();
     }
 
     public function attempts()
@@ -70,6 +101,7 @@ class Exam extends Model
         return $this->hasMany(ExamResult::class);
     }
 
+    // Helper methods
     public function isUpcoming()
     {
         return Carbon::now()->lt($this->start_time);
@@ -95,11 +127,11 @@ class Exam extends Model
         if ($this->show_results_immediately) {
             return true;
         }
-        
+
         if ($this->result_release_time) {
             return Carbon::now()->gte($this->result_release_time);
         }
-        
+
         return false;
     }
 

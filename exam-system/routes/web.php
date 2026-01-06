@@ -3,10 +3,11 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboard;
-use App\Http\Controllers\Admin\QuestionController;
 use App\Http\Controllers\Admin\SubjectController;
+use App\Http\Controllers\Admin\QuestionController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ExamController as AdminExamController;
+use App\Http\Controllers\Admin\StudentController as AdminStudentController;
 use App\Http\Controllers\Teacher\DashboardController as TeacherDashboard;
 use App\Http\Controllers\Teacher\ExamController as TeacherExamController;
 use App\Http\Controllers\Teacher\StudentController as TeacherStudentController;
@@ -20,9 +21,8 @@ use App\Http\Controllers\Parent\DashboardController as ParentDashboardController
 |--------------------------------------------------------------------------
 */
 
-// Public Routes
 Route::get('/', function () {
-    return redirect('/login');
+    return redirect()->route('login');
 });
 
 // Authentication Routes
@@ -54,8 +54,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     // User Management
     Route::resource('users', UserController::class);
     
+    // 🎯 ADDED: AJAX route for fetching teacher questions (MUST BE BEFORE resource routes)
+    Route::get('exams/teacher-questions', [AdminExamController::class, 'getTeacherQuestions'])->name('exams.teacher-questions');
+    
     // Exam Management
     Route::resource('exams', AdminExamController::class);
+    
+    // Student Management
+    Route::resource('students', AdminStudentController::class);
 });
 
 /*

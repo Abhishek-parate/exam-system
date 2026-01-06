@@ -1,25 +1,32 @@
 <?php
+// app/Models/User.php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+    use HasFactory, Notifiable;
 
     protected $fillable = [
-        'name', 'email', 'mobile', 'password', 'role_id', 'is_active', 'email_verified_at'
+        'name',
+        'email',
+        'password',
+        'role_id',
+        'is_active',
     ];
 
-    protected $hidden = ['password', 'remember_token'];
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
 
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'password' => 'hashed',
         'is_active' => 'boolean',
     ];
 
@@ -47,26 +54,31 @@ class User extends Authenticatable
     // Helper Methods
     public function isAdmin()
     {
-        return $this->role->name === 'admin';
+        return $this->role && $this->role->name === 'admin';
     }
 
     public function isTeacher()
     {
-        return $this->role->name === 'teacher';
+        return $this->role && $this->role->name === 'teacher';
     }
 
     public function isStudent()
     {
-        return $this->role->name === 'student';
+        return $this->role && $this->role->name === 'student';
     }
 
     public function isParent()
     {
-        return $this->role->name === 'parent';
+        return $this->role && $this->role->name === 'parent';
+    }
+
+    public function getRoleName()
+    {
+        return $this->role ? $this->role->display_name : 'No Role';
     }
 
     public function hasPermission($permission)
     {
-        return $this->role->permissions()->where('name', $permission)->exists();
+        return $this->role && $this->role->permissions()->where('name', $permission)->exists();
     }
 }

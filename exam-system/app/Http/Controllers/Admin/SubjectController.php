@@ -3,16 +3,18 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\ExamCategory;
 use App\Models\Subject;
+use App\Models\ExamCategory;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class SubjectController extends Controller
 {
+    /**
+     * Display a listing of subjects
+     */
     public function index(Request $request)
     {
-        $query = Subject::with('examCategory');
+        $query = Subject::query();
 
         // Apply filters
         if ($request->filled('exam_category_id')) {
@@ -27,18 +29,24 @@ class SubjectController extends Controller
             $query->where('is_active', $request->status === 'active');
         }
 
-        $subjects = $query->latest()->paginate(20);
+        $subjects = $query->with('examCategory')->latest()->paginate(20);
         $examCategories = ExamCategory::where('is_active', true)->get();
 
         return view('admin.subjects.index', compact('subjects', 'examCategories'));
     }
 
+    /**
+     * Show the form for creating a new subject
+     */
     public function create()
     {
         $examCategories = ExamCategory::where('is_active', true)->get();
         return view('admin.subjects.create', compact('examCategories'));
     }
 
+    /**
+     * Store a newly created subject
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -61,6 +69,9 @@ class SubjectController extends Controller
             ->with('success', 'Subject created successfully!');
     }
 
+    /**
+     * Display the specified subject
+     */
     public function show(Subject $subject)
     {
         $subject->load(['examCategory', 'chapters', 'questions']);
@@ -75,12 +86,18 @@ class SubjectController extends Controller
         return view('admin.subjects.show', compact('subject', 'stats'));
     }
 
+    /**
+     * Show the form for editing the specified subject
+     */
     public function edit(Subject $subject)
     {
         $examCategories = ExamCategory::where('is_active', true)->get();
         return view('admin.subjects.edit', compact('subject', 'examCategories'));
     }
 
+    /**
+     * Update the specified subject
+     */
     public function update(Request $request, Subject $subject)
     {
         $validated = $request->validate([
@@ -103,6 +120,9 @@ class SubjectController extends Controller
             ->with('success', 'Subject updated successfully!');
     }
 
+    /**
+     * Remove the specified subject
+     */
     public function destroy(Subject $subject)
     {
         try {
@@ -115,6 +135,7 @@ class SubjectController extends Controller
 
             return redirect()->route('admin.subjects.index')
                 ->with('success', 'Subject deleted successfully!');
+                
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to delete subject: ' . $e->getMessage());
         }

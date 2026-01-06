@@ -21,18 +21,35 @@ class Subject extends Model
         'is_active' => 'boolean',
     ];
 
+    /**
+     * Relationship: Subject belongs to ExamCategory
+     */
     public function examCategory()
     {
-        return $this->belongsTo(ExamCategory::class);
+        return $this->belongsTo(ExamCategory::class, 'exam_category_id');
     }
 
+    /**
+     * Relationship: Subject has many Chapters
+     */
     public function chapters()
     {
         return $this->hasMany(Chapter::class);
     }
 
+    /**
+     * Relationship: Subject has many Questions
+     */
     public function questions()
     {
         return $this->hasMany(Question::class);
+    }
+
+    /**
+     * Relationship: Subject belongs to many Teachers
+     */
+    public function teachers()
+    {
+        return $this->belongsToMany(Teacher::class, 'teacher_subject', 'subject_id', 'teacher_id');
     }
 }

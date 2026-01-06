@@ -7,40 +7,70 @@ use App\Models\Exam;
 use App\Models\ExamCategory;
 use App\Models\ExamMarkingScheme;
 use App\Models\Question;
+use App\Models\SchoolClass;
 use App\Models\Subject;
-use App\Models\Student;
+use App\Models\Teacher;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class ExamController extends Controller
 {
+    /**
+     * Display a listing of exams for the authenticated teacher
+     * Only shows exams for classes assigned to this teacher
+     */
     public function index()
     {
-        $exams = Exam::with(['examCategory', 'questions'])
-            ->where('created_by', auth()->id())
+        // Get current teacher
+        $teacher = Teacher::where('user_id', auth()->id())->first();
+        
+        if (!$teacher) {
+            return view('teacher.exams.index', ['exams' => collect()]);
+        }
+
+        // Filter exams: show only exams assigned to this specific teacher
+        $exams = Exam::with(['examCategory', 'schoolClass'])
+            ->where('assigned_teacher_id', $teacher->id)
             ->latest()
             ->paginate(15);
 
         return view('teacher.exams.index', compact('exams'));
     }
 
+    /**
+     * Show the form for creating a new exam
+     * Only shows classes assigned to this teacher
+     */
     public function create()
     {
+        // Get teacher's assigned classes only
+        $teacher = Teacher::where('user_id', auth()->id())->first();
+        $assignedClasses = $teacher ? $teacher->classes()->where('is_active', true)->get() : collect();
+        
         $examCategories = ExamCategory::where('is_active', true)->get();
         $subjects = Subject::where('is_active', true)->get();
         $questions = Question::with(['subject', 'examCategory'])
             ->where('is_active', true)
             ->get();
 
-        return view('teacher.exams.create', compact('examCategories', 'subjects', 'questions'));
+        return view('teacher.exams.create', compact('examCategories', 'subjects', 'questions', 'assignedClasses'));
     }
 
+    /**
+     * Store a newly created exam in storage
+     * Validates that teacher is assigned to the selected class
+     */
     public function store(Request $request)
     {
+        // Get teacher to validate class assignment
+        $teacher = Teacher::where('user_id', auth()->id())->first();
+        $assignedClassIds = $teacher ? $teacher->classes()->pluck('school_classes.id')->toArray() : [];
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'exam_category_id' => 'required|exists:exam_categories,id',
+            'school_class_id' => 'nullable|exists:school_classes,id', // NEW: Class selection
             'description' => 'nullable|string',
             'duration_minutes' => 'required|integer|min:1',
             'total_questions' => 'required|integer|min:1',
@@ -58,6 +88,11 @@ class ExamController extends Controller
             'selected_questions' => 'required|array|min:1',
         ]);
 
+        // Validate that teacher is assigned to the selected class
+        if (!empty($validated['school_class_id']) && !in_array($validated['school_class_id'], $assignedClassIds)) {
+            return back()->with('error', 'You are not assigned to the selected class.')->withInput();
+        }
+
         $selectedQuestions = array_filter($request->selected_questions, function($qId) {
             return !empty($qId) && is_numeric($qId);
         });
@@ -67,7 +102,6 @@ class ExamController extends Controller
         }
 
         DB::beginTransaction();
-
         try {
             $validated['exam_code'] = 'EXM' . strtoupper(Str::random(8));
             $validated['created_by'] = auth()->id();
@@ -76,6 +110,7 @@ class ExamController extends Controller
             $validated['randomize_options'] = $request->has('randomize_options');
             $validated['allow_resume'] = $request->has('allow_resume');
 
+            // Calculate total marks
             $totalMarks = 0;
             foreach ($request->marking_schemes as $scheme) {
                 $questionCount = count(array_filter($selectedQuestions, function($qId) use ($scheme) {
@@ -88,6 +123,7 @@ class ExamController extends Controller
             $validated['total_marks'] = $totalMarks;
             $exam = Exam::create($validated);
 
+            // Create marking schemes
             foreach ($request->marking_schemes as $scheme) {
                 ExamMarkingScheme::create([
                     'exam_id' => $exam->id,
@@ -98,6 +134,7 @@ class ExamController extends Controller
                 ]);
             }
 
+            // Attach questions to exam
             $displayOrder = 1;
             foreach ($selectedQuestions as $questionId) {
                 if (!empty($questionId) && is_numeric($questionId)) {
@@ -106,7 +143,6 @@ class ExamController extends Controller
             }
 
             DB::commit();
-
             return redirect()->route('teacher.exams.index')
                 ->with('success', 'Exam created successfully!');
         } catch (\Exception $e) {
@@ -115,15 +151,29 @@ class ExamController extends Controller
         }
     }
 
+    /**
+     * Display the specified exam
+     * Only accessible if teacher is assigned to the exam's class
+     */
     public function show($id)
     {
+        $teacher = Teacher::where('user_id', auth()->id())->first();
+
+        if (!$teacher) {
+            abort(403, 'Unauthorized access');
+        }
+
         $exam = Exam::with([
-            'examCategory', 
-            'questions.subject', 
+            'examCategory',
+            'schoolClass',
+            'assignedTeacher.user',
+            'questions.subject',
             'questions.options',
-            'markingSchemes.subject', 
+            'markingSchemes.subject',
             'attempts.student.user'
-        ])->where('created_by', auth()->id())->findOrFail($id);
+        ])
+        ->where('assigned_teacher_id', $teacher->id)
+        ->findOrFail($id);
 
         $statistics = [
             'total_questions' => $exam->questions()->count(),
@@ -133,7 +183,6 @@ class ExamController extends Controller
             'average_score' => $this->calculateAverageScore($exam),
         ];
 
-        // Get exam status
         $now = now();
         if ($now->lt($exam->start_time)) {
             $status = 'Scheduled';
@@ -162,12 +211,12 @@ class ExamController extends Controller
                     return round(($avgMarks / $exam->total_marks) * 100, 2);
                 }
             }
-            
+
             // Try to calculate from exam_attempts if it has obtained_marks
             $completedAttempts = $exam->attempts()
                 ->whereIn('status', ['submitted', 'auto_submitted'])
                 ->get();
-            
+
             if ($completedAttempts->count() > 0 && $exam->total_marks > 0) {
                 // Check if obtained_marks column exists
                 $firstAttempt = $completedAttempts->first();
@@ -179,14 +228,30 @@ class ExamController extends Controller
         } catch (\Exception $e) {
             // Silently fail and return 0
         }
-        
+
         return 0;
     }
 
+    /**
+     * Show the form for editing the specified exam
+     * Only accessible if teacher is assigned to the exam's class
+     */
     public function edit($id)
     {
-        $exam = Exam::with(['questions', 'markingSchemes'])
+        $teacher = Teacher::where('user_id', auth()->id())->first();
+        $assignedClassIds = $teacher ? $teacher->classes()->pluck('school_classes.id')->toArray() : [];
+        $assignedClasses = $teacher ? $teacher->classes()->where('is_active', true)->get() : collect();
+
+        $exam = Exam::with(['questions', 'markingSchemes', 'schoolClass'])
             ->where('created_by', auth()->id())
+            ->where(function($query) use ($assignedClassIds) {
+                if (!empty($assignedClassIds)) {
+                    $query->whereIn('school_class_id', $assignedClassIds)
+                          ->orWhereNull('school_class_id');
+                } else {
+                    $query->whereNull('school_class_id');
+                }
+            })
             ->findOrFail($id);
 
         $examCategories = ExamCategory::where('is_active', true)->get();
@@ -197,16 +262,33 @@ class ExamController extends Controller
 
         $selectedQuestionIds = $exam->questions->pluck('id')->toArray();
 
-        return view('teacher.exams.edit', compact('exam', 'examCategories', 'subjects', 'questions', 'selectedQuestionIds'));
+        return view('teacher.exams.edit', compact('exam', 'examCategories', 'subjects', 'questions', 'selectedQuestionIds', 'assignedClasses'));
     }
 
+    /**
+     * Update the specified exam in storage
+     * Validates that teacher is assigned to the selected class
+     */
     public function update(Request $request, $id)
     {
-        $exam = Exam::where('created_by', auth()->id())->findOrFail($id);
+        $teacher = Teacher::where('user_id', auth()->id())->first();
+        $assignedClassIds = $teacher ? $teacher->classes()->pluck('school_classes.id')->toArray() : [];
+
+        $exam = Exam::where('created_by', auth()->id())
+            ->where(function($query) use ($assignedClassIds) {
+                if (!empty($assignedClassIds)) {
+                    $query->whereIn('school_class_id', $assignedClassIds)
+                          ->orWhereNull('school_class_id');
+                } else {
+                    $query->whereNull('school_class_id');
+                }
+            })
+            ->findOrFail($id);
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'exam_category_id' => 'required|exists:exam_categories,id',
+            'school_class_id' => 'nullable|exists:school_classes,id',
             'description' => 'nullable|string',
             'duration_minutes' => 'required|integer|min:1',
             'total_questions' => 'required|integer|min:1',
@@ -224,6 +306,11 @@ class ExamController extends Controller
             'selected_questions' => 'required|array|min:1',
         ]);
 
+        // Validate that teacher is assigned to the selected class
+        if (!empty($validated['school_class_id']) && !in_array($validated['school_class_id'], $assignedClassIds)) {
+            return back()->with('error', 'You are not assigned to the selected class.')->withInput();
+        }
+
         $selectedQuestions = array_filter($request->selected_questions, function($qId) {
             return !empty($qId) && is_numeric($qId);
         });
@@ -233,13 +320,13 @@ class ExamController extends Controller
         }
 
         DB::beginTransaction();
-
         try {
             $validated['show_results_immediately'] = $request->has('show_results_immediately');
             $validated['randomize_questions'] = $request->has('randomize_questions');
             $validated['randomize_options'] = $request->has('randomize_options');
             $validated['allow_resume'] = $request->has('allow_resume');
 
+            // Calculate total marks
             $totalMarks = 0;
             foreach ($request->marking_schemes as $scheme) {
                 $questionCount = count(array_filter($selectedQuestions, function($qId) use ($scheme) {
@@ -252,6 +339,7 @@ class ExamController extends Controller
             $validated['total_marks'] = $totalMarks;
             $exam->update($validated);
 
+            // Update marking schemes
             $exam->markingSchemes()->delete();
             foreach ($request->marking_schemes as $scheme) {
                 ExamMarkingScheme::create([
@@ -263,6 +351,7 @@ class ExamController extends Controller
                 ]);
             }
 
+            // Update questions
             $exam->questions()->detach();
             $displayOrder = 1;
             foreach ($selectedQuestions as $questionId) {
@@ -272,7 +361,6 @@ class ExamController extends Controller
             }
 
             DB::commit();
-
             return redirect()->route('teacher.exams.show', $exam->id)
                 ->with('success', 'Exam updated successfully!');
         } catch (\Exception $e) {
@@ -281,9 +369,24 @@ class ExamController extends Controller
         }
     }
 
+    /**
+     * Remove the specified exam from storage
+     */
     public function destroy($id)
     {
-        $exam = Exam::where('created_by', auth()->id())->findOrFail($id);
+        $teacher = Teacher::where('user_id', auth()->id())->first();
+        $assignedClassIds = $teacher ? $teacher->classes()->pluck('school_classes.id')->toArray() : [];
+
+        $exam = Exam::where('created_by', auth()->id())
+            ->where(function($query) use ($assignedClassIds) {
+                if (!empty($assignedClassIds)) {
+                    $query->whereIn('school_class_id', $assignedClassIds)
+                          ->orWhereNull('school_class_id');
+                } else {
+                    $query->whereNull('school_class_id');
+                }
+            })
+            ->findOrFail($id);
 
         try {
             if ($exam->attempts()->count() > 0) {
@@ -291,11 +394,9 @@ class ExamController extends Controller
             }
 
             DB::beginTransaction();
-            
             $exam->markingSchemes()->delete();
             $exam->questions()->detach();
             $exam->delete();
-            
             DB::commit();
 
             return redirect()->route('teacher.exams.index')
@@ -306,6 +407,9 @@ class ExamController extends Controller
         }
     }
 
+    /**
+     * Enroll students to an exam
+     */
     public function enrollStudents(Request $request, Exam $exam)
     {
         $this->authorize('update', $exam);
@@ -316,7 +420,6 @@ class ExamController extends Controller
         ]);
 
         DB::beginTransaction();
-
         try {
             foreach ($request->student_ids as $studentId) {
                 $exam->enrolledStudents()->syncWithoutDetaching([
@@ -325,7 +428,6 @@ class ExamController extends Controller
             }
 
             DB::commit();
-
             return response()->json([
                 'success' => true,
                 'message' => 'Students enrolled successfully'
@@ -339,6 +441,9 @@ class ExamController extends Controller
         }
     }
 
+    /**
+     * Publish exam results
+     */
     public function publishResults(Exam $exam)
     {
         $this->authorize('update', $exam);
@@ -361,6 +466,9 @@ class ExamController extends Controller
         }
     }
 
+    /**
+     * Search questions via AJAX
+     */
     public function searchQuestions(Request $request)
     {
         $query = Question::with(['subject', 'difficulty'])
@@ -383,7 +491,6 @@ class ExamController extends Controller
         }
 
         $questions = $query->limit(50)->get();
-
         return response()->json($questions);
     }
 }
