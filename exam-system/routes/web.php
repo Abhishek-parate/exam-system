@@ -39,10 +39,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     // Dashboard
     Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard');
     
-    // ✅ Subject Management
+    // Subject Management
     Route::resource('subjects', SubjectController::class);
     
-    // ✅ AJAX routes for dynamic dropdowns (MUST be before resource routes)
+    // AJAX routes for dynamic dropdowns (MUST be before resource routes)
     Route::get('questions/subjects/{category}', [QuestionController::class, 'getSubjectsByCategory'])->name('questions.subjects');
     Route::get('questions/chapters/{subject}', [QuestionController::class, 'getChaptersBySubject'])->name('questions.chapters');
     Route::get('questions/topics/{chapter}', [QuestionController::class, 'getTopicsByChapter'])->name('questions.topics');
@@ -54,7 +54,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     // User Management
     Route::resource('users', UserController::class);
     
-    // 🎯 ADDED: AJAX route for fetching teacher questions (MUST BE BEFORE resource routes)
+    // AJAX route for fetching teacher questions (MUST BE BEFORE resource routes)
     Route::get('exams/teacher-questions', [AdminExamController::class, 'getTeacherQuestions'])->name('exams.teacher-questions');
     
     // Exam Management
@@ -74,18 +74,17 @@ Route::prefix('teacher')->name('teacher.')->middleware(['auth', 'role:teacher'])
     Route::get('/dashboard', [TeacherDashboard::class, 'index'])->name('dashboard');
     Route::get('/reports', [TeacherDashboard::class, 'reports'])->name('reports.index');
     
-    // Exam Management
-    // AJAX route for searching questions (must come before resource routes)
-    Route::get('exams/questions/search', [TeacherExamController::class, 'searchQuestions'])->name('exams.questions.search');
+    // 🎯 AJAX route for getting teacher questions (MUST BE BEFORE exam routes)
+    Route::get('exams/get-teacher-questions', [TeacherExamController::class, 'getTeacherQuestions'])->name('exams.getTeacherQuestions');
     
     // Exam CRUD Routes
     Route::get('exams', [TeacherExamController::class, 'index'])->name('exams.index');
     Route::get('exams/create', [TeacherExamController::class, 'create'])->name('exams.create');
     Route::post('exams', [TeacherExamController::class, 'store'])->name('exams.store');
-    Route::get('exams/{id}', [TeacherExamController::class, 'show'])->name('exams.show');
-    Route::get('exams/{id}/edit', [TeacherExamController::class, 'edit'])->name('exams.edit');
-    Route::put('exams/{id}', [TeacherExamController::class, 'update'])->name('exams.update');
-    Route::delete('exams/{id}', [TeacherExamController::class, 'destroy'])->name('exams.destroy');
+    Route::get('exams/{exam}', [TeacherExamController::class, 'show'])->name('exams.show');
+    Route::get('exams/{exam}/edit', [TeacherExamController::class, 'edit'])->name('exams.edit');
+    Route::put('exams/{exam}', [TeacherExamController::class, 'update'])->name('exams.update');
+    Route::delete('exams/{exam}', [TeacherExamController::class, 'destroy'])->name('exams.destroy');
     
     // Additional Exam Actions
     Route::post('exams/{exam}/enroll-students', [TeacherExamController::class, 'enrollStudents'])->name('exams.enroll');
