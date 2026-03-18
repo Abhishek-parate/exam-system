@@ -4,29 +4,41 @@
 
 @section('content')
 <div class="container mx-auto px-4 py-8">
+
     <!-- Header -->
     <div class="flex justify-between items-center mb-8">
         <h1 class="text-3xl font-bold text-gray-900">User Management</h1>
-        <a href="{{ route('admin.users.create') }}" 
+        <a href="{{ route('admin.users.create') }}"
            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition">
             + Add New User
         </a>
     </div>
 
+    <!-- Flash Messages -->
+    @if(session('success'))
+        <div class="mb-4 p-4 bg-green-100 text-green-800 rounded-lg">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="mb-4 p-4 bg-red-100 text-red-800 rounded-lg">{{ session('error') }}</div>
+    @endif
+
     <!-- Filters -->
     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
         <form method="GET" action="{{ route('admin.users.index') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-                <input type="text" name="search" value="{{ request('search') }}" 
+                <input type="text" name="search" value="{{ request('search') }}"
                        placeholder="Search by name or email..."
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
             </div>
             <div>
+                {{-- Filter by role name (matches roles.name column) --}}
                 <select name="role" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                     <option value="">All Roles</option>
-                    <option value="admin" {{ request('role') == 'admin' ? 'selected' : '' }}>Admin</option>
-                    <option value="instructor" {{ request('role') == 'instructor' ? 'selected' : '' }}>Instructor</option>
-                    <option value="student" {{ request('role') == 'student' ? 'selected' : '' }}>Student</option>
+                    @foreach($roles as $role)
+                        <option value="{{ $role->name }}" {{ request('role') == $role->name ? 'selected' : '' }}>
+                            {{ ucfirst($role->display_name ?? $role->name) }}
+                        </option>
+                    @endforeach
                 </select>
             </div>
             <div>
@@ -79,12 +91,15 @@
                             <div class="text-sm text-gray-900">{{ $user->email }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
+                            @php $roleName = $user->role?->name ?? 'N/A'; @endphp
                             <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
-                                @if($user->role == 'admin') bg-purple-100 text-purple-800
-                                @elseif($user->role == 'instructor') bg-blue-100 text-blue-800
+                                @if($roleName == 'admin') bg-purple-100 text-purple-800
+                                @elseif($roleName == 'teacher') bg-blue-100 text-blue-800
+                                @elseif($roleName == 'student') bg-green-100 text-green-800
+                                @elseif($roleName == 'parent') bg-yellow-100 text-yellow-800
                                 @else bg-gray-100 text-gray-800
                                 @endif">
-                                {{ ucfirst($user->role) }}
+                                {{ ucfirst($user->role?->display_name ?? $roleName) }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">

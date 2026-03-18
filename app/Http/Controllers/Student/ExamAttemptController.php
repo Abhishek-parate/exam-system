@@ -9,55 +9,60 @@ use App\Models\ExamAnswer;
 use App\Models\ExamAnswerTimeLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
 
 class ExamAttemptController extends Controller
 {
+    // -------------------------------------------------------
+    // My Exams list page
+    // -------------------------------------------------------
     public function index()
     {
         $student = auth()->user()->student;
-        
-        $availableExams = $student->enrolledExams()
-                                 ->where('is_active', true)
-                                 ->where('start_time', '<=', now())
-                                 ->where('end_time', '>=', now())
-                                 ->with('examCategory')
-                                 ->get();
+        $now     = now();
 
-        $upcomingExams = $student->enrolledExams()
-                                ->where('is_active', true)
-                                ->where('start_time', '>', now())
-                                ->with('examCategory')
-                                ->get();
+        $allExams = $this->getAllAccessibleExams($student);
+
+        $availableExams = $allExams->filter(fn($e) =>
+            $e->is_active
+            && $e->start_time->lte($now)
+            && $e->end_time->gte($now)
+            && ! $student->hasAttemptedExam($e->id)
+        )->values();
+
+        $upcomingExams = $allExams->filter(fn($e) => $e->start_time->gt($now))
+                                   ->sortBy('start_time')->values();
 
         $completedExams = $student->examAttempts()
-                                 ->whereIn('status', ['submitted', 'auto_submitted'])
-                                 ->with(['exam.examCategory', 'result'])
-                                 ->latest()
-                                 ->get();
+                                   ->whereIn('status', ['submitted', 'auto_submitted'])
+                                   ->with(['exam.examCategory', 'result'])
+                                   ->latest()
+                                   ->get();
 
         return view('student.exams.index', compact('availableExams', 'upcomingExams', 'completedExams'));
     }
 
+    // -------------------------------------------------------
+    // Instructions page
+    // -------------------------------------------------------
     public function instructions(Exam $exam)
     {
         $student = auth()->user()->student;
 
-        // Check if student is enrolled
-        if (!$exam->enrolledStudents()->where('student_id', $student->id)->exists()) {
-            abort(403, 'You are not enrolled in this exam.');
+        if (! $this->studentCanAccessExam($exam, $student)) {
+            abort(403, 'You do not have access to this exam.');
         }
 
-        // Check if already attempted
         if ($student->hasAttemptedExam($exam->id)) {
             return redirect()->route('student.exams.index')
-                           ->with('error', 'You have already attempted this exam.');
+                             ->with('error', 'You have already attempted this exam.');
         }
 
-        // Check if exam is available
-        if (!$exam->canBeAttempted()) {
+        if (! $exam->canBeAttempted()) {
             return redirect()->route('student.exams.index')
-                           ->with('error', 'This exam is not available for attempt.');
+                             ->with('error', 'This exam is not currently available.');
         }
 
         $exam->load(['examCategory', 'markingSchemes.subject']);
@@ -65,40 +70,39 @@ class ExamAttemptController extends Controller
         return view('student.exams.instructions', compact('exam'));
     }
 
+    // -------------------------------------------------------
+    // Start exam
+    // -------------------------------------------------------
     public function start(Exam $exam)
     {
         $student = auth()->user()->student;
 
-        if (!$exam->canBeAttempted()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Exam is not available'
-            ], 403);
+        if (! $this->studentCanAccessExam($exam, $student)) {
+            return response()->json(['success' => false, 'message' => 'Access denied.'], 403);
+        }
+
+        if (! $exam->canBeAttempted()) {
+            return response()->json(['success' => false, 'message' => 'Exam is not available.'], 403);
         }
 
         if ($student->hasAttemptedExam($exam->id)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Already attempted'
-            ], 403);
+            return response()->json(['success' => false, 'message' => 'Already attempted.'], 403);
         }
 
         DB::beginTransaction();
         try {
             $attempt = ExamAttempt::create([
-                'exam_id' => $exam->id,
+                'exam_id'    => $exam->id,
                 'student_id' => $student->id,
                 'started_at' => now(),
-                'status' => 'in_progress',
+                'status'     => 'in_progress',
                 'ip_address' => request()->ip(),
                 'user_agent' => request()->userAgent(),
             ]);
 
-            // Create answer records for all questions
-            $questions = $exam->questions;
-            foreach ($questions as $question) {
+            foreach ($exam->questions as $question) {
                 ExamAnswer::create([
-                    'attempt_id' => $attempt->id,
+                    'attempt_id'  => $attempt->id,
                     'question_id' => $question->id,
                 ]);
             }
@@ -106,92 +110,88 @@ class ExamAttemptController extends Controller
             DB::commit();
 
             return response()->json([
-                'success' => true,
-                'redirect_url' => route('student.exams.attempt', $attempt->attempt_token)
+                'success'      => true,
+                'redirect_url' => route('student.exams.attempt', $attempt->attempt_token),
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to start exam'
-            ], 500);
+            Log::error('Exam start failed: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to start exam.'], 500);
         }
     }
 
+    // -------------------------------------------------------
+    // Attempt page
+    // -------------------------------------------------------
     public function attempt($attemptToken)
     {
         $attempt = ExamAttempt::where('attempt_token', $attemptToken)
                               ->with(['exam.questions.options', 'answers'])
                               ->firstOrFail();
 
-        // Verify ownership
-        if ($attempt->student_id !== auth()->user()->student->id) {
-            abort(403);
-        }
+        if ($attempt->student_id !== auth()->user()->student->id) abort(403);
 
-        // Check if already submitted
         if ($attempt->isSubmitted()) {
-            return redirect()->route('student.exams.index')
-                           ->with('info', 'Exam already submitted');
+            return redirect()->route('student.exams.index')->with('info', 'Exam already submitted.');
         }
 
-        // Check if exam time expired
         if ($attempt->getRemainingTimeSeconds() <= 0) {
             $this->autoSubmit($attempt);
-            return redirect()->route('student.exams.index')
-                           ->with('info', 'Exam time expired. Auto-submitted.');
+            return redirect()->route('student.exams.index')->with('info', 'Time expired. Auto-submitted.');
         }
 
-        $questions = $attempt->exam->randomize_questions 
-                   ? $attempt->exam->questions->shuffle() 
+        $questions = $attempt->exam->randomize_questions
+                   ? $attempt->exam->questions->shuffle()
                    : $attempt->exam->questions;
 
         return view('student.exams.attempt', compact('attempt', 'questions'));
     }
 
-    // AJAX - Save answer
+    // -------------------------------------------------------
+    // AJAX — Save answer
+    // -------------------------------------------------------
     public function saveAnswer(Request $request, $attemptToken)
     {
         $attempt = ExamAttempt::where('attempt_token', $attemptToken)->firstOrFail();
 
         if ($attempt->student_id !== auth()->user()->student->id || $attempt->isSubmitted()) {
-            return response()->json(['success' => false, 'message' => 'Invalid attempt'], 403);
+            return response()->json(['success' => false, 'message' => 'Invalid attempt.'], 403);
         }
 
-        $validated = $request->validate([
-            'question_id' => 'required|exists:questions,id',
-            'option_id' => 'nullable|exists:question_options,id',
+        $request->validate([
+            'question_id'          => 'required|exists:questions,id',
+            'option_id'            => 'nullable|exists:question_options,id',
             'is_marked_for_review' => 'nullable|boolean',
         ]);
 
         try {
             $answer = ExamAnswer::where('attempt_id', $attempt->id)
-                               ->where('question_id', $request->question_id)
-                               ->first();
+                                ->where('question_id', $request->question_id)
+                                ->first();
 
-            if (!$answer) {
-                return response()->json(['success' => false, 'message' => 'Invalid question'], 400);
+            if (! $answer) {
+                return response()->json(['success' => false, 'message' => 'Invalid question.'], 400);
             }
 
             $answer->update([
-                'selected_option_id' => $request->option_id,
+                'selected_option_id'   => $request->option_id,
                 'is_marked_for_review' => $request->is_marked_for_review ?? false,
-                'last_answered_at' => now(),
-                'first_answered_at' => $answer->first_answered_at ?? now(),
+                'last_answered_at'     => now(),
+                'first_answered_at'    => $answer->first_answered_at ?? now(),
             ]);
 
-            return response()->json([
-                'success' => true,
-                'status' => $answer->status
-            ]);
+            return response()->json(['success' => true, 'status' => $answer->status]);
 
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Failed to save answer'], 500);
+            Log::error('Save answer failed: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to save answer.'], 500);
         }
     }
 
-    // AJAX - Track time on question
+    // -------------------------------------------------------
+    // AJAX — Track time
+    // -------------------------------------------------------
     public function trackTime(Request $request, $attemptToken)
     {
         $attempt = ExamAttempt::where('attempt_token', $attemptToken)->firstOrFail();
@@ -200,25 +200,24 @@ class ExamAttemptController extends Controller
             return response()->json(['success' => false], 403);
         }
 
-        $validated = $request->validate([
+        $request->validate([
             'question_id' => 'required|exists:questions,id',
-            'time_spent' => 'required|integer|min:0',
+            'time_spent'  => 'required|integer|min:0',
         ]);
 
         try {
             $answer = ExamAnswer::where('attempt_id', $attempt->id)
-                               ->where('question_id', $request->question_id)
-                               ->first();
+                                ->where('question_id', $request->question_id)
+                                ->first();
 
             if ($answer) {
                 $answer->increment('time_spent_seconds', $request->time_spent);
                 $answer->increment('visit_count');
 
-                // Log time entry
                 ExamAnswerTimeLog::create([
-                    'answer_id' => $answer->id,
-                    'entered_at' => now()->subSeconds($request->time_spent),
-                    'exited_at' => now(),
+                    'answer_id'        => $answer->id,
+                    'entered_at'       => now()->subSeconds($request->time_spent),
+                    'exited_at'        => now(),
                     'duration_seconds' => $request->time_spent,
                 ]);
             }
@@ -230,7 +229,9 @@ class ExamAttemptController extends Controller
         }
     }
 
-    // AJAX - Get exam status (for polling)
+    // -------------------------------------------------------
+    // AJAX — Status polling
+    // -------------------------------------------------------
     public function getStatus($attemptToken)
     {
         $attempt = ExamAttempt::where('attempt_token', $attemptToken)->firstOrFail();
@@ -239,80 +240,133 @@ class ExamAttemptController extends Controller
             return response()->json(['success' => false], 403);
         }
 
-        $remainingSeconds = $attempt->getRemainingTimeSeconds();
+        $remaining = $attempt->getRemainingTimeSeconds();
 
-        // Auto-submit if time expired
-        if ($remainingSeconds <= 0 && $attempt->isInProgress()) {
+        if ($remaining <= 0 && $attempt->isInProgress()) {
             $this->autoSubmit($attempt);
-            
             return response()->json([
-                'success' => true,
+                'success'      => true,
                 'time_expired' => true,
-                'redirect_url' => route('student.exams.index')
+                'redirect_url' => route('student.exams.index'),
             ]);
         }
 
         return response()->json([
-            'success' => true,
-            'remaining_seconds' => $remainingSeconds,
-            'time_expired' => false,
+            'success'           => true,
+            'remaining_seconds' => $remaining,
+            'time_expired'      => false,
         ]);
     }
 
+    // -------------------------------------------------------
+    // ✅ Submit — result calculation failure no longer blocks submission
+    // -------------------------------------------------------
     public function submit(Request $request, $attemptToken)
     {
         $attempt = ExamAttempt::where('attempt_token', $attemptToken)->firstOrFail();
 
         if ($attempt->student_id !== auth()->user()->student->id || $attempt->isSubmitted()) {
-            return response()->json(['success' => false, 'message' => 'Invalid attempt'], 403);
+            return response()->json(['success' => false, 'message' => 'Invalid attempt.'], 403);
         }
 
         DB::beginTransaction();
         try {
+            // ✅ Step 1: Mark attempt as submitted
             $attempt->update([
-                'submitted_at' => now(),
-                'status' => 'submitted',
+                'submitted_at'       => now(),
+                'status'             => 'submitted',
                 'time_taken_seconds' => now()->diffInSeconds($attempt->started_at),
             ]);
 
-            // Calculate result
-            $this->calculateResult($attempt);
-
             DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Exam submitted successfully',
-                'redirect_url' => route('student.exams.index')
-            ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['success' => false, 'message' => 'Failed to submit exam'], 500);
+            Log::error('Exam submission failed: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Submission failed. Please try again.'], 500);
         }
+
+        // ✅ Step 2: Calculate result SEPARATELY from the commit
+        // If this fails, submission is already saved — student won't lose their work
+        try {
+            $this->calculateResult($attempt);
+        } catch (\Exception $e) {
+            // Log but don't fail the response — result can be recalculated later by admin
+            Log::error('Result calculation failed for attempt ' . $attempt->id . ': ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'success'      => true,
+            'message'      => 'Exam submitted successfully!',
+            'redirect_url' => route('student.exams.index'),
+        ]);
     }
 
-    private function autoSubmit(ExamAttempt $attempt)
+    // -------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------
+    private function getAllAccessibleExams($student)
+    {
+        $hasEnrollmentType = Schema::hasColumn('exams', 'enrollment_type');
+
+        if (! $hasEnrollmentType) {
+            return Exam::where('is_active', true)->with('examCategory')->get();
+        }
+
+        $openExams = Exam::where(function ($q) {
+                            $q->where('enrollment_type', 'open')
+                              ->orWhereNull('enrollment_type');
+                         })
+                         ->with('examCategory')
+                         ->get();
+
+        $enrolledOnlyExams = $student->enrolledExams()
+                                      ->where('enrollment_type', 'enrolled')
+                                      ->with('examCategory')
+                                      ->get();
+
+        return $openExams->merge($enrolledOnlyExams)->unique('id');
+    }
+
+    private function studentCanAccessExam(Exam $exam, $student): bool
+    {
+        $hasEnrollmentType = Schema::hasColumn('exams', 'enrollment_type');
+
+        if (! $hasEnrollmentType) return true;
+
+        if (is_null($exam->enrollment_type) || $exam->enrollment_type === 'open') return true;
+
+        return $exam->enrolledStudents()
+                    ->where('student_id', $student->id)
+                    ->where('is_enrolled', true)
+                    ->exists();
+    }
+
+    private function autoSubmit(ExamAttempt $attempt): void
     {
         DB::beginTransaction();
         try {
             $attempt->update([
-                'auto_submitted_at' => now(),
-                'status' => 'auto_submitted',
+                'auto_submitted_at'  => now(),
+                'status'             => 'auto_submitted',
                 'time_taken_seconds' => $attempt->exam->duration_minutes * 60,
             ]);
-
-            $this->calculateResult($attempt);
-
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Auto-submit failed: ' . $e->getMessage());
+        }
+
+        // Calculate result separately
+        try {
+            $this->calculateResult($attempt);
+        } catch (\Exception $e) {
+            Log::error('Result calculation failed on auto-submit: ' . $e->getMessage());
         }
     }
 
-    private function calculateResult(ExamAttempt $attempt)
+    private function calculateResult(ExamAttempt $attempt): void
     {
-        // Import result calculation service
         app(\App\Services\ResultCalculationService::class)->calculate($attempt);
     }
 }

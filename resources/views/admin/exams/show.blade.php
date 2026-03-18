@@ -1,319 +1,473 @@
 @extends('layouts.admin')
 
-@section('title', $exam->title . ' - Exam Details')
+@section('title', 'Exam Details')
 
 @section('content')
 <div class="container mx-auto px-4 py-8">
-    <!-- Header -->
-    <div class="flex justify-between items-center mb-8">
+
+    {{-- HEADER --}}
+    <div class="flex justify-between items-center mb-6">
         <div>
             <h1 class="text-3xl font-bold text-gray-900">{{ $exam->title }}</h1>
-            <p class="text-gray-600 mt-1">{{ $exam->exam_code }}</p>
+            <p class="text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
+                Code: <span class="font-mono font-bold text-blue-600">{{ $exam->exam_code }}</span>
+                &nbsp;|&nbsp;
+                <span class="px-2 py-1 rounded-full text-xs font-semibold
+                    @if($exam->status==='ongoing') bg-green-100 text-green-800
+                    @elseif($exam->status==='upcoming') bg-blue-100 text-blue-800
+                    @else bg-gray-100 text-gray-800 @endif">
+                    {{ ucfirst($exam->status) }}
+                </span>
+                &nbsp;|&nbsp;
+                @php $enrollType = $exam->enrollment_type ?? 'open'; @endphp
+                @if($enrollType === 'open')
+                    <span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">🌐 Open to All</span>
+                @else
+                    <span class="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">🔒 Enrolled Only</span>
+                @endif
+            </p>
         </div>
         <div class="flex gap-3">
-            <a href="{{ route('admin.exams.edit', $exam) }}" 
-               class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition">
-                ✏️ Edit Exam
-            </a>
-            <a href="{{ route('admin.exams.index') }}" 
-               class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition">
-                ← Back to Exams
-            </a>
+            <a href="{{ route('admin.exams.edit', $exam) }}"
+               class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-5 rounded-lg transition">✏️ Edit</a>
+            <a href="{{ route('admin.exams.index') }}"
+               class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-5 rounded-lg transition">← Back</a>
         </div>
     </div>
 
-    <!-- Status Badge -->
-    <div class="mb-6">
-        <span class="px-4 py-2 text-sm font-semibold rounded-full 
-            @if($exam->status === 'ongoing') bg-green-100 text-green-800
-            @elseif($exam->status === 'upcoming') bg-blue-100 text-blue-800
-            @else bg-gray-100 text-gray-800
-            @endif">
-            {{ ucfirst($exam->status) }}
-        </span>
-        @if($exam->is_active)
-            <span class="ml-2 px-4 py-2 text-sm font-semibold rounded-full bg-green-100 text-green-800">
-                Active
-            </span>
-        @else
-            <span class="ml-2 px-4 py-2 text-sm font-semibold rounded-full bg-red-100 text-red-800">
-                Inactive
-            </span>
+    @if(session('success'))
+        <div class="mb-4 p-4 bg-green-100 text-green-800 rounded-lg">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="mb-4 p-4 bg-red-100 text-red-800 rounded-lg">{{ session('error') }}</div>
+    @endif
+
+    {{-- STATS --}}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white rounded-lg shadow p-5 text-center">
+            <p id="stat-total-questions" class="text-3xl font-bold text-blue-600">{{ $stats['total_questions'] }}</p>
+            <p class="text-sm text-gray-500 mt-1">Questions</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-5 text-center">
+            <p id="stat-enrolled-students" class="text-3xl font-bold text-green-600">
+                @if($enrollType === 'open') All @else {{ $stats['enrolled_students'] }} @endif
+            </p>
+            <p class="text-sm text-gray-500 mt-1">Students</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-5 text-center">
+            <p class="text-3xl font-bold text-purple-600">{{ $stats['total_attempts'] }}</p>
+            <p class="text-sm text-gray-500 mt-1">Attempts</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-5 text-center">
+            <p class="text-3xl font-bold text-orange-600">{{ $stats['completed_attempts'] }}</p>
+            <p class="text-sm text-gray-500 mt-1">Completed</p>
+        </div>
+    </div>
+
+    {{-- EXAM INFO --}}
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">📋 Exam Details</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div><span class="text-gray-500">Category:</span> <strong>{{ $exam->examCategory?->name ?? 'N/A' }}</strong></div>
+            <div><span class="text-gray-500">Duration:</span> <strong>{{ $exam->duration_minutes }} min</strong></div>
+            <div><span class="text-gray-500">Total Marks:</span> <strong>{{ $exam->total_marks }}</strong></div>
+            <div><span class="text-gray-500">Start:</span> <strong>{{ $exam->start_time->format('d M Y, h:i A') }}</strong></div>
+            <div><span class="text-gray-500">End:</span> <strong>{{ $exam->end_time->format('d M Y, h:i A') }}</strong></div>
+            <div><span class="text-gray-500">Active:</span>
+                <strong class="{{ $exam->is_active ? 'text-green-600' : 'text-red-500' }}">
+                    {{ $exam->is_active ? '✓ Yes' : '✗ No' }}
+                </strong>
+            </div>
+        </div>
+        @if($exam->description)
+            <p class="mt-4 text-gray-600 text-sm">{{ $exam->description }}</p>
         @endif
     </div>
 
-    <!-- Statistics Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-600">Total Questions</p>
-                    <p class="text-3xl font-bold text-blue-600">{{ $stats['total_questions'] }}</p>
-                </div>
-                <div class="bg-blue-100 p-3 rounded-full">
-                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
+    {{-- QUESTION ASSIGNMENT --}}
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+
+        {{-- Assigned Questions --}}
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="bg-blue-600 px-6 py-4">
+                <h2 class="text-white font-bold text-lg">
+                    📝 Assigned Questions
+                    <span id="assigned-count" class="ml-2 bg-white text-blue-600 text-xs font-bold px-2 py-1 rounded-full">
+                        {{ $stats['total_questions'] }}
+                    </span>
+                </h2>
             </div>
-        </div>
-
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-600">Enrolled Students</p>
-                    <p class="text-3xl font-bold text-green-600">{{ $stats['enrolled_students'] }}</p>
-                </div>
-                <div class="bg-green-100 p-3 rounded-full">
-                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-                    </svg>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-600">Total Attempts</p>
-                    <p class="text-3xl font-bold text-purple-600">{{ $stats['total_attempts'] }}</p>
-                </div>
-                <div class="bg-purple-100 p-3 rounded-full">
-                    <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
-                    </svg>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-600">Completed</p>
-                    <p class="text-3xl font-bold text-orange-600">{{ $stats['completed_attempts'] }}</p>
-                </div>
-                <div class="bg-orange-100 p-3 rounded-full">
-                    <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Exam Details -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <!-- Left Column: Exam Info -->
-        <div class="lg:col-span-2 space-y-6">
-            <!-- Basic Information -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-bold mb-4">Exam Information</h2>
-                <div class="space-y-3">
-                    <div class="flex border-b pb-2">
-                        <span class="w-48 text-gray-600">Category:</span>
-                        <span class="font-semibold">{{ $exam->examCategory->name }}</span>
-                    </div>
-                    <div class="flex border-b pb-2">
-                        <span class="w-48 text-gray-600">Duration:</span>
-                        <span class="font-semibold">{{ $exam->duration_minutes }} minutes</span>
-                    </div>
-                    <div class="flex border-b pb-2">
-                        <span class="w-48 text-gray-600">Total Marks:</span>
-                        <span class="font-semibold">{{ $exam->total_marks }}</span>
-                    </div>
-                    <div class="flex border-b pb-2">
-                        <span class="w-48 text-gray-600">Start Time:</span>
-                        <span class="font-semibold">{{ $exam->start_time->format('d M Y, h:i A') }}</span>
-                    </div>
-                    <div class="flex border-b pb-2">
-                        <span class="w-48 text-gray-600">End Time:</span>
-                        <span class="font-semibold">{{ $exam->end_time->format('d M Y, h:i A') }}</span>
-                    </div>
-                    @if($exam->result_release_time)
-                        <div class="flex border-b pb-2">
-                            <span class="w-48 text-gray-600">Result Release:</span>
-                            <span class="font-semibold">{{ $exam->result_release_time->format('d M Y, h:i A') }}</span>
-                        </div>
-                    @endif
-                    <div class="flex border-b pb-2">
-                        <span class="w-48 text-gray-600">Created By:</span>
-                        <span class="font-semibold">{{ $exam->creator->name }}</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Description -->
-            @if($exam->description)
-                <div class="bg-white rounded-lg shadow-md p-6">
-                    <h2 class="text-xl font-bold mb-4">Description</h2>
-                    <p class="text-gray-700">{{ $exam->description }}</p>
-                </div>
-            @endif
-
-            <!-- Exam Settings -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-bold mb-4">Settings</h2>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="flex items-center">
-                        @if($exam->randomize_questions)
-                            <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                        @else
-                            <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        @endif
-                        <span class="text-sm">Randomize Questions</span>
-                    </div>
-                    
-                    <div class="flex items-center">
-                        @if($exam->randomize_options)
-                            <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                        @else
-                            <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        @endif
-                        <span class="text-sm">Randomize Options</span>
-                    </div>
-
-                    <div class="flex items-center">
-                        @if($exam->show_results_immediately)
-                            <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                        @else
-                            <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        @endif
-                        <span class="text-sm">Show Results Immediately</span>
-                    </div>
-
-                    <div class="flex items-center">
-                        @if($exam->allow_resume)
-                            <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                        @else
-                            <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        @endif
-                        <span class="text-sm">Allow Resume</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Right Column: Actions & Quick Info -->
-        <div class="space-y-6">
-            <!-- Quick Actions -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-bold mb-4">Quick Actions</h2>
-                <div class="space-y-3">
-                    <button class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition text-sm">
-                        📝 Add Questions
-                    </button>
-                    <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition text-sm">
-                        👥 Enroll Students
-                    </button>
-                    <button class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg transition text-sm">
-                        📊 View Results
-                    </button>
-                    <button class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-lg transition text-sm">
-                        📄 Generate Report
-                    </button>
-                </div>
-            </div>
-
-            <!-- Danger Zone -->
-            <div class="bg-red-50 border border-red-200 rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-bold text-red-800 mb-4">Danger Zone</h2>
-                <form method="POST" action="{{ route('admin.exams.destroy', $exam) }}" 
-                      onsubmit="return confirm('Are you sure you want to delete this exam? This action cannot be undone!');">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition text-sm">
-                        🗑️ Delete Exam
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Questions List -->
-    @if($exam->questions->count() > 0)
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-bold mb-4">Questions ({{ $exam->questions->count() }})</h2>
-            <div class="space-y-3">
-                @foreach($exam->questions as $index => $question)
-                    <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                        <div class="flex-1">
-                            <p class="font-semibold text-gray-900">Q{{ $index + 1 }}. {{ Str::limit(strip_tags($question->question_text), 100) }}</p>
-                            <div class="flex gap-4 mt-2 text-xs text-gray-600">
-                                <span>📚 {{ $question->subject->name }}</span>
-                                <span>⚡ {{ $question->difficulty->name }}</span>
-                                <span>+{{ $question->marks }} marks</span>
+            <div id="assigned-questions-list" class="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
+                @forelse($exam->questions as $question)
+                    <div id="assigned-row-{{ $question->id }}" class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50">
+                        <span class="text-xs text-gray-400 mt-1 w-6 shrink-0">#{{ $loop->iteration }}</span>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm text-gray-800 line-clamp-2">{{ $question->question_text }}</p>
+                            <div class="flex gap-2 mt-1 flex-wrap">
+                                <span class="text-xs text-gray-500">{{ $question->subject?->name ?? 'N/A' }}</span>
+                                @php $dn = strtolower($question->difficulty?->name ?? ''); @endphp
+                                <span class="text-xs px-2 py-0.5 rounded-full font-medium
+                                    @if($dn==='easy') bg-green-100 text-green-700
+                                    @elseif($dn==='medium') bg-yellow-100 text-yellow-700
+                                    @else bg-red-100 text-red-700 @endif">
+                                    {{ $question->difficulty?->name ?? 'N/A' }}
+                                </span>
+                                <span class="text-xs text-blue-600 font-semibold">+{{ $question->marks }}</span>
                             </div>
                         </div>
-                        <a href="{{ route('admin.questions.show', $question) }}" 
-                           class="text-blue-600 hover:text-blue-800 ml-4">
-                            View →
-                        </a>
+                        <button onclick="removeQuestion({{ $question->id }})"
+                                class="shrink-0 text-red-400 hover:text-red-600 p-1 rounded transition">🗑️</button>
                     </div>
-                @endforeach
+                @empty
+                    <div id="no-questions-msg" class="px-6 py-12 text-center text-gray-400">
+                        <p class="text-4xl mb-2">📭</p>
+                        <p>No questions assigned yet.</p>
+                    </div>
+                @endforelse
             </div>
         </div>
-    @else
-        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-            <svg class="mx-auto h-12 w-12 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-            </svg>
-            <h3 class="mt-2 text-lg font-medium text-yellow-800">No questions added yet</h3>
-            <p class="mt-1 text-sm text-yellow-600">Add questions to this exam to make it available for students.</p>
-            <div class="mt-4">
-                <button class="bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-6 rounded-lg transition">
-                    Add Questions Now
+
+        {{-- Question Bank --}}
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="bg-green-600 px-6 py-4 flex justify-between items-center">
+                <h2 class="text-white font-bold text-lg">🔍 Question Bank</h2>
+                <span id="bank-result-count" class="text-green-100 text-xs"></span>
+            </div>
+            <div class="px-4 py-3 border-b border-gray-100 bg-gray-50 space-y-2">
+                <div class="grid grid-cols-2 gap-2">
+                    <select id="filter-subject" class="text-sm px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500">
+                        <option value="">All Subjects</option>
+                        @foreach($subjects as $subject)
+                            <option value="{{ $subject->id }}">{{ $subject->name }}</option>
+                        @endforeach
+                    </select>
+                    <select id="filter-difficulty" class="text-sm px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500">
+                        <option value="">All Difficulties</option>
+                        @foreach($difficulties as $diff)
+                            <option value="{{ $diff->id }}">{{ $diff->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="filter-search" placeholder="Search question text..."
+                           class="flex-1 text-sm px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500">
+                    <button onclick="searchQuestions(1)" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                        🔍 Search
+                    </button>
+                </div>
+                <div class="flex justify-between items-center">
+                    <label class="text-xs text-gray-500 flex items-center gap-1 cursor-pointer">
+                        <input type="checkbox" id="select-all-questions" onchange="toggleSelectAll(this)" class="rounded">
+                        Select all visible
+                    </label>
+                    <button onclick="bulkAdd()" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition font-medium">
+                        ➕ Add Selected
+                    </button>
+                </div>
+            </div>
+            <div id="question-bank-list" class="divide-y divide-gray-100 max-h-[450px] overflow-y-auto">
+                <div class="px-6 py-8 text-center text-gray-400 text-sm"><p class="text-3xl mb-2">⏳</p><p>Loading...</p></div>
+            </div>
+            <div id="bank-pagination" class="px-4 py-3 border-t border-gray-100 flex justify-between items-center hidden">
+                <button id="btn-prev" onclick="changePage(-1)" class="text-sm text-blue-600 hover:underline disabled:opacity-40">← Prev</button>
+                <span id="page-info" class="text-xs text-gray-500"></span>
+                <button id="btn-next" onclick="changePage(1)" class="text-sm text-blue-600 hover:underline disabled:opacity-40">Next →</button>
+            </div>
+        </div>
+
+    </div>
+
+    {{-- STUDENT ENROLLMENT SECTION --}}
+    <div class="mb-8">
+        @if($enrollType === 'open')
+            <div class="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
+                <p class="text-green-800 font-semibold text-lg">🌐 Open Exam — all active students can access it automatically.</p>
+                <p class="text-green-600 text-sm mt-1">Edit the exam and change Enrollment Type to "Enrolled Only" to restrict access.</p>
+            </div>
+        @else
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+
+                {{-- Enrolled Students List --}}
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="bg-purple-600 px-6 py-4 flex justify-between items-center">
+                        <h2 class="text-white font-bold text-lg">
+                            👥 Enrolled Students
+                            <span id="enrolled-count" class="ml-2 bg-white text-purple-600 text-xs font-bold px-2 py-1 rounded-full">
+                                {{ $stats['enrolled_students'] }}
+                            </span>
+                        </h2>
+                        <button onclick="enrollAll()"
+                                class="text-xs bg-white text-purple-700 hover:bg-purple-50 px-3 py-1.5 rounded-lg font-medium transition">
+                            ➕ Enroll All
+                        </button>
+                    </div>
+                    <div id="enrolled-students-list" class="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
+                        @forelse($exam->enrolledStudents as $student)
+                            @if($student->user)  {{-- ✅ null-safe: skip students with no user --}}
+                            <div id="enrolled-row-{{ $student->id }}" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
+                                <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">
+                                    {{ strtoupper(substr($student->user->name, 0, 1)) }}
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-800">{{ $student->user->name }}</p>
+                                    <p class="text-xs text-gray-500">{{ $student->enrollment_number ?? 'N/A' }}</p>
+                                </div>
+                                <button onclick="unenrollStudent({{ $student->id }})"
+                                        class="shrink-0 text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded transition">✕</button>
+                            </div>
+                            @endif
+                        @empty
+                            <div id="no-enrolled-msg" class="px-6 py-12 text-center text-gray-400">
+                                <p class="text-4xl mb-2">👤</p>
+                                <p>No students enrolled yet.</p>
+                            </div>
+                        @endforelse
+                    </div>
+                </div>
+
+                {{-- Available Students --}}
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="bg-indigo-600 px-6 py-4">
+                        <h2 class="text-white font-bold text-lg">🔍 Add Students</h2>
+                    </div>
+                    <div class="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                        <input type="text" id="student-search-input"
+                               placeholder="Search by name or enrollment number..."
+                               oninput="filterAvailableStudents(this.value)"
+                               class="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div id="available-students-list" class="divide-y divide-gray-100 max-h-[430px] overflow-y-auto">
+                        @forelse($availableStudents as $student)
+                            @if($student->user)  {{-- ✅ null-safe: skip orphaned students --}}
+                            <div id="available-row-{{ $student->id }}"
+                                 class="available-student-row flex items-center gap-3 px-4 py-3 hover:bg-gray-50"
+                                 data-name="{{ strtolower($student->user->name) }}"
+                                 data-enrollment="{{ strtolower($student->enrollment_number ?? '') }}">
+                                <div class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">
+                                    {{ strtoupper(substr($student->user->name, 0, 1)) }}
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-800">{{ $student->user->name }}</p>
+                                    <p class="text-xs text-gray-500">{{ $student->enrollment_number ?? 'N/A' }}</p>
+                                </div>
+                                <button onclick="enrollStudent({{ $student->id }}, '{{ addslashes($student->user->name) }}', '{{ $student->enrollment_number ?? '' }}')"
+                                        id="enroll-btn-{{ $student->id }}"
+                                        class="shrink-0 bg-indigo-500 hover:bg-indigo-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition">
+                                    ➕ Enroll
+                                </button>
+                            </div>
+                            @endif
+                        @empty
+                            <div class="px-6 py-10 text-center text-gray-400 text-sm">All students are already enrolled.</div>
+                        @endforelse
+                    </div>
+                </div>
+
+            </div>
+        @endif
+    </div>
+
+</div>
+
+@push('scripts')
+<script>
+    const URL_SEARCH     = "{{ route('admin.exams.questions.search',   $exam) }}";
+    const URL_Q_BASE     = "{{ url('admin/exams/' . $exam->id . '/questions') }}";
+    const URL_BULK_ADD   = "{{ route('admin.exams.questions.bulk-add', $exam) }}";
+    const URL_STU_BASE   = "{{ url('admin/exams/' . $exam->id . '/students') }}";
+    const URL_ENROLL_ALL = "{{ route('admin.exams.students.enroll-all', $exam) }}";
+    const CSRF_TOKEN     = "{{ csrf_token() }}";
+
+    let currentPage = 1, lastPage = 1;
+
+    document.addEventListener('DOMContentLoaded', () => searchQuestions(1));
+    document.getElementById('filter-subject').addEventListener('change',    () => searchQuestions(1));
+    document.getElementById('filter-difficulty').addEventListener('change', () => searchQuestions(1));
+    document.getElementById('filter-search').addEventListener('keydown', e => { if(e.key==='Enter') searchQuestions(1); });
+
+    function searchQuestions(page = 1) {
+        currentPage = page;
+        const params = new URLSearchParams({ page });
+        const s = document.getElementById('filter-subject').value;
+        const d = document.getElementById('filter-difficulty').value;
+        const q = document.getElementById('filter-search').value.trim();
+        if (s) params.append('subject_id', s);
+        if (d) params.append('difficulty_id', d);
+        if (q) params.append('search', q);
+
+        document.getElementById('question-bank-list').innerHTML =
+            '<div class="px-6 py-8 text-center text-gray-400 text-sm"><p class="text-3xl mb-2">⏳</p><p>Loading...</p></div>';
+
+        fetch(`${URL_SEARCH}?${params}`, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => { if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+        .then(data => {
+            if(data.error) throw new Error(data.message);
+            lastPage = data.last_page;
+            renderBankResults(data.questions);
+            updatePagination(data.current_page, data.last_page, data.total);
+            document.getElementById('bank-result-count').textContent = `${data.total} found`;
+        })
+        .catch(err => {
+            document.getElementById('question-bank-list').innerHTML =
+                `<div class="px-6 py-8 text-center text-red-500 text-sm"><p class="text-2xl mb-2">⚠️</p>
+                <p>${escapeHtml(err.message)}</p>
+                <button onclick="searchQuestions(1)" class="mt-3 text-blue-600 hover:underline text-xs">Retry</button></div>`;
+        });
+    }
+
+    function renderBankResults(questions) {
+        const list = document.getElementById('question-bank-list');
+        if (!questions?.length) {
+            list.innerHTML = '<div class="px-6 py-10 text-center text-gray-400 text-sm">No questions found.</div>';
+            return;
+        }
+        const cm = { green:'bg-green-100 text-green-700', yellow:'bg-yellow-100 text-yellow-700', red:'bg-red-100 text-red-700', gray:'bg-gray-100 text-gray-700' };
+        list.innerHTML = questions.map(q => `
+            <div id="bank-row-${q.id}" class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition">
+                <input type="checkbox" class="question-checkbox mt-1.5 shrink-0 rounded" value="${q.id}">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm text-gray-800 line-clamp-2">${escapeHtml(q.question_text)}</p>
+                    <div class="flex flex-wrap gap-2 mt-1">
+                        <span class="text-xs text-gray-500">${escapeHtml(q.subject)}</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full font-medium ${cm[q.difficulty_color]??cm.gray}">${escapeHtml(q.difficulty)}</span>
+                        <span class="text-xs text-blue-600 font-semibold">+${q.marks}</span>
+                        <span class="text-xs text-gray-400">${q.options_count} opts</span>
+                    </div>
+                </div>
+                <button onclick="addQuestion(${q.id})" id="add-btn-${q.id}"
+                        class="shrink-0 bg-green-500 hover:bg-green-600 text-white text-xs px-3 py-1.5 rounded-lg transition font-medium">
+                    ➕ Add
                 </button>
             </div>
-        </div>
-    @endif
+        `).join('');
+    }
 
-    <!-- Enrolled Students -->
-    @if($exam->enrolledStudents->count() > 0)
-        <div class="bg-white rounded-lg shadow-md p-6 mt-6">
-            <h2 class="text-xl font-bold mb-4">Enrolled Students ({{ $exam->enrolledStudents->count() }})</h2>
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student Name</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Enrollment No</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y">
-                        @foreach($exam->enrolledStudents as $student)
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-4 py-3">{{ $student->user->name }}</td>
-                                <td class="px-4 py-3">{{ $student->enrollment_number }}</td>
-                                <td class="px-4 py-3">{{ $student->user->email }}</td>
-                                <td class="px-4 py-3">
-                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                        Enrolled
-                                    </span>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    @endif
-</div>
+    function updatePagination(page, last, total) {
+        const c = document.getElementById('bank-pagination');
+        if(last<=1){c.classList.add('hidden');return;}
+        c.classList.remove('hidden');
+        document.getElementById('page-info').textContent = `Page ${page} of ${last} (${total})`;
+        document.getElementById('btn-prev').disabled = page<=1;
+        document.getElementById('btn-next').disabled = page>=last;
+    }
+
+    function changePage(d) { const p=currentPage+d; if(p>=1&&p<=lastPage) searchQuestions(p); }
+
+    function addQuestion(qId) {
+        const btn = document.getElementById(`add-btn-${qId}`);
+        if(btn){btn.disabled=true;btn.textContent='...';}
+        fetch(`${URL_Q_BASE}/${qId}`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF_TOKEN,'Accept':'application/json'}})
+        .then(r=>r.json()).then(data=>{
+            showToast(data.message.includes('already')?'Already added.':'Question added!', data.message.includes('already')?'yellow':'green');
+            if(!data.message.includes('already')){updateStatCount(data.total_questions);reloadAssignedPanel();}
+            if(btn){btn.disabled=true;btn.textContent='✓ Added';btn.classList.replace('bg-green-500','bg-gray-400');}
+        }).catch(()=>{showToast('Error.','red');if(btn){btn.disabled=false;btn.textContent='➕ Add';}});
+    }
+
+    function removeQuestion(qId) {
+        if(!confirm('Remove this question?')) return;
+        fetch(`${URL_Q_BASE}/${qId}`,{method:'DELETE',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF_TOKEN,'Accept':'application/json'}})
+        .then(r=>r.json()).then(data=>{
+            showToast('Removed.','red'); updateStatCount(data.total_questions);
+            document.getElementById(`assigned-row-${qId}`)?.remove(); checkEmptyAssigned();
+            const ab=document.getElementById(`add-btn-${qId}`);
+            if(ab){ab.disabled=false;ab.textContent='➕ Add';ab.classList.replace('bg-gray-400','bg-green-500');}
+        }).catch(()=>showToast('Error.','red'));
+    }
+
+    function bulkAdd() {
+        const ids=[...document.querySelectorAll('.question-checkbox:checked')].map(c=>c.value);
+        if(!ids.length){showToast('Select at least one.','yellow');return;}
+        fetch(URL_BULK_ADD,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF_TOKEN,'Accept':'application/json'},body:JSON.stringify({question_ids:ids})})
+        .then(r=>r.json()).then(data=>{showToast(data.message,'green');updateStatCount(data.total_questions);reloadAssignedPanel();searchQuestions(currentPage);})
+        .catch(()=>showToast('Error.','red'));
+    }
+
+    function toggleSelectAll(cb){document.querySelectorAll('.question-checkbox').forEach(c=>c.checked=cb.checked);}
+
+    function enrollStudent(studentId, name, enrollmentNo) {
+        const btn = document.getElementById(`enroll-btn-${studentId}`);
+        if(btn){btn.disabled=true;btn.textContent='...';}
+        fetch(`${URL_STU_BASE}/${studentId}`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF_TOKEN,'Accept':'application/json'}})
+        .then(r=>r.json()).then(data=>{
+            if(data.message.includes('already')){showToast('Already enrolled.','yellow');return;}
+            showToast(`${name} enrolled!`,'green'); updateEnrolledCount(data.enrolled_count);
+            document.getElementById('no-enrolled-msg')?.remove();
+            document.getElementById('enrolled-students-list').insertAdjacentHTML('beforeend',`
+                <div id="enrolled-row-${studentId}" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
+                    <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">${name.charAt(0).toUpperCase()}</div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-gray-800">${escapeHtml(name)}</p>
+                        <p class="text-xs text-gray-500">${escapeHtml(enrollmentNo)}</p>
+                    </div>
+                    <button onclick="unenrollStudent(${studentId})" class="shrink-0 text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded transition">✕</button>
+                </div>
+            `);
+            document.getElementById(`available-row-${studentId}`)?.remove();
+        }).catch(()=>{showToast('Error.','red');if(btn){btn.disabled=false;btn.textContent='➕ Enroll';}});
+    }
+
+    function unenrollStudent(studentId) {
+        if(!confirm('Remove this student?')) return;
+        fetch(`${URL_STU_BASE}/${studentId}`,{method:'DELETE',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF_TOKEN,'Accept':'application/json'}})
+        .then(r=>r.json()).then(data=>{
+            showToast('Student removed.','red'); updateEnrolledCount(data.enrolled_count);
+            document.getElementById(`enrolled-row-${studentId}`)?.remove(); checkEmptyEnrolled();
+        }).catch(()=>showToast('Error.','red'));
+    }
+
+    function enrollAll() {
+        if(!confirm('Enroll ALL students?')) return;
+        fetch(URL_ENROLL_ALL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF_TOKEN,'Accept':'application/json'}})
+        .then(r=>r.json()).then(data=>{showToast(data.message,'green');updateEnrolledCount(data.enrolled_count);location.reload();})
+        .catch(()=>showToast('Error.','red'));
+    }
+
+    function filterAvailableStudents(query) {
+        const q = query.toLowerCase();
+        document.querySelectorAll('.available-student-row').forEach(row=>{
+            row.style.display=(row.dataset.name?.includes(q)||row.dataset.enrollment?.includes(q))?'':'none';
+        });
+    }
+
+    function reloadAssignedPanel() {
+        fetch(window.location.href).then(r=>r.text()).then(html=>{
+            const doc=new DOMParser().parseFromString(html,'text/html');
+            const nl=doc.getElementById('assigned-questions-list');
+            if(nl) document.getElementById('assigned-questions-list').innerHTML=nl.innerHTML;
+        });
+    }
+
+    function updateStatCount(total){
+        document.getElementById('stat-total-questions').textContent=total;
+        document.getElementById('assigned-count').textContent=total;
+    }
+
+    function updateEnrolledCount(count){
+        const el=document.getElementById('enrolled-count');if(el)el.textContent=count;
+        const st=document.getElementById('stat-enrolled-students');if(st)st.textContent=count;
+    }
+
+    function checkEmptyAssigned(){
+        const l=document.getElementById('assigned-questions-list');
+        if(!l.querySelector('[id^="assigned-row-"]'))
+            l.innerHTML=`<div id="no-questions-msg" class="px-6 py-12 text-center text-gray-400"><p class="text-4xl mb-2">📭</p><p>No questions assigned.</p></div>`;
+    }
+
+    function checkEmptyEnrolled(){
+        const l=document.getElementById('enrolled-students-list');
+        if(!l.querySelector('[id^="enrolled-row-"]'))
+            l.innerHTML=`<div id="no-enrolled-msg" class="px-6 py-12 text-center text-gray-400"><p class="text-4xl mb-2">👤</p><p>No students enrolled yet.</p></div>`;
+    }
+
+    function showToast(msg,color='green'){
+        const c={green:'bg-green-600',red:'bg-red-600',yellow:'bg-yellow-500'};
+        const t=document.createElement('div');
+        t.className=`fixed top-5 right-5 z-50 text-white text-sm font-medium px-5 py-3 rounded-lg shadow-lg ${c[color]??'bg-gray-800'}`;
+        t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3000);
+    }
+
+    function escapeHtml(text){const d=document.createElement('div');d.appendChild(document.createTextNode(text??''));return d.innerHTML;}
+</script>
+@endpush
 @endsection

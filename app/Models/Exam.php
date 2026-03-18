@@ -16,21 +16,24 @@ class Exam extends Model
         'duration_minutes', 'total_questions', 'total_marks',
         'randomize_questions', 'randomize_options', 'show_results_immediately',
         'start_time', 'end_time', 'result_release_time',
-        'allow_resume', 'is_active', 'created_by'
+        'allow_resume', 'is_active', 'enrollment_type', 'created_by',
     ];
 
     protected $casts = [
-        'start_time' => 'datetime',
-        'end_time' => 'datetime',
-        'result_release_time' => 'datetime',
-        'randomize_questions' => 'boolean',
-        'randomize_options' => 'boolean',
+        'start_time'               => 'datetime',
+        'end_time'                 => 'datetime',
+        'result_release_time'      => 'datetime',
+        'randomize_questions'      => 'boolean',
+        'randomize_options'        => 'boolean',
         'show_results_immediately' => 'boolean',
-        'allow_resume' => 'boolean',
-        'is_active' => 'boolean',
-        'total_marks' => 'decimal:2',
+        'allow_resume'             => 'boolean',
+        'is_active'                => 'boolean',
+        'total_marks'              => 'decimal:2',
     ];
 
+    // -------------------------------------------------------
+    // Relationships
+    // -------------------------------------------------------
     public function examCategory()
     {
         return $this->belongsTo(ExamCategory::class);
@@ -45,7 +48,7 @@ class Exam extends Model
     {
         return $this->belongsToMany(Question::class, 'exam_questions')
                     ->withPivot('display_order')
-                    ->orderBy('display_order');
+                    ->orderBy('exam_questions.display_order');
     }
 
     public function markingSchemes()
@@ -70,43 +73,68 @@ class Exam extends Model
         return $this->hasMany(ExamResult::class);
     }
 
-    public function isUpcoming()
+    // -------------------------------------------------------
+    // ✅ TIMEZONE-SAFE: use now() helper which respects
+    // app.timezone from config/app.php
+    // -------------------------------------------------------
+    private function currentTime(): Carbon
     {
-        return Carbon::now()->lt($this->start_time);
+        return now();
     }
 
-    public function isOngoing()
+    public function isUpcoming(): bool
     {
-        return Carbon::now()->between($this->start_time, $this->end_time);
+        return $this->currentTime()->lt($this->start_time);
     }
 
-    public function isExpired()
+    public function isOngoing(): bool
     {
-        return Carbon::now()->gt($this->end_time);
+        $now = $this->currentTime();
+        return $now->gte($this->start_time) && $now->lte($this->end_time);
     }
 
-    public function canBeAttempted()
+    public function isExpired(): bool
+    {
+        return $this->currentTime()->gt($this->end_time);
+    }
+
+    public function canBeAttempted(): bool
     {
         return $this->is_active && $this->isOngoing();
     }
 
-    public function areResultsPublished()
+    public function areResultsPublished(): bool
     {
-        if ($this->show_results_immediately) {
-            return true;
-        }
-        
+        if ($this->show_results_immediately) return true;
         if ($this->result_release_time) {
-            return Carbon::now()->gte($this->result_release_time);
+            return $this->currentTime()->gte($this->result_release_time);
         }
-        
         return false;
     }
 
-    public function getStatusAttribute()
+    public function getStatusAttribute(): string
     {
         if ($this->isUpcoming()) return 'upcoming';
-        if ($this->isOngoing()) return 'ongoing';
+        if ($this->isOngoing())  return 'ongoing';
         return 'expired';
+    }
+
+    // -------------------------------------------------------
+    // Enrollment helpers
+    // -------------------------------------------------------
+    public function isOpenEnrollment(): bool
+    {
+        // Treat NULL as 'open' for backward compatibility
+        return is_null($this->enrollment_type) || $this->enrollment_type === 'open';
+    }
+
+    public function isAccessibleByStudent(Student $student): bool
+    {
+        if ($this->isOpenEnrollment()) return true;
+
+        return $this->enrolledStudents()
+                    ->where('student_id', $student->id)
+                    ->where('is_enrolled', true)
+                    ->exists();
     }
 }

@@ -11,6 +11,10 @@
         </a>
     </div>
 
+    @if(session('success'))
+        <div class="mb-4 p-4 bg-green-100 text-green-800 rounded-lg">{{ session('success') }}</div>
+    @endif
+
     <form method="POST" action="{{ route('admin.users.store') }}" class="bg-white rounded-lg shadow-md p-8">
         @csrf
 
@@ -32,15 +36,19 @@
             @enderror
         </div>
 
+        {{-- role_name maps to the 'name' column in roles table --}}
         <div class="mb-6">
             <label class="block text-sm font-medium text-gray-700 mb-2">Role *</label>
-            <select name="role" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+            <select name="role_name" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                 <option value="">Select Role</option>
-                <option value="admin" {{ old('role') == 'admin' ? 'selected' : '' }}>Admin</option>
-                <option value="instructor" {{ old('role') == 'instructor' ? 'selected' : '' }}>Instructor</option>
-                <option value="student" {{ old('role') == 'student' ? 'selected' : '' }}>Student</option>
+                @foreach($roles as $role)
+                    <option value="{{ $role->name }}" {{ old('role_name') == $role->name ? 'selected' : '' }}>
+                        {{ ucfirst($role->display_name ?? $role->name) }}
+                    </option>
+                @endforeach
             </select>
-            @error('role')
+            @error('role_name')
                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
             @enderror
         </div>
@@ -68,10 +76,12 @@
         </div>
 
         <div class="flex gap-4">
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition">
+            <button type="submit"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition">
                 💾 Create User
             </button>
-            <a href="{{ route('admin.users.index') }}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-6 rounded-lg transition">
+            <a href="{{ route('admin.users.index') }}"
+               class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-6 rounded-lg transition">
                 Cancel
             </a>
         </div>
