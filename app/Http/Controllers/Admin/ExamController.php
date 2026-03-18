@@ -4,14 +4,18 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Exam;
+use App\Models\ExamAttempt;
 use App\Models\ExamCategory;
+use App\Models\ExamResult;
 use App\Models\Question;
 use App\Models\QuestionDifficulty;
 use App\Models\Student;
 use App\Models\Subject;
+use App\Services\ResultCalculationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class ExamController extends Controller
@@ -101,7 +105,7 @@ class ExamController extends Controller
     }
 
     // =========================================================
-    // SHOW
+    // SHOW  — lists attempts + results
     // =========================================================
     public function show(Exam $exam)
     {
@@ -111,11 +115,22 @@ class ExamController extends Controller
             'enrolledStudents.user',
         ]);
 
+        $attempts = $exam->attempts()
+                         ->with(['student.user', 'result'])
+                         ->whereIn('status', ['submitted', 'auto_submitted'])
+                         ->latest('submitted_at')
+                         ->get();
+
+        $noResultCount = $attempts->filter(fn($a) => is_null($a->result))->count();
+
         $stats = [
-            'total_questions'    => $exam->questions->count(),
-            'enrolled_students'  => $exam->enrolledStudents->count(),
-            'total_attempts'     => $exam->attempts->count(),
-            'completed_attempts' => $exam->attempts()->whereIn('status', ['submitted', 'auto_submitted'])->count(),
+            'total_questions'     => $exam->questions->count(),
+            'enrolled_students'   => $exam->enrolledStudents->count(),
+            'total_attempts'      => $exam->attempts()->count(),
+            'completed_attempts'  => $attempts->count(),
+            'published_results'   => $attempts->filter(fn($a) => $a->result?->is_published)->count(),
+            'unpublished_results' => $attempts->filter(fn($a) => $a->result && ! $a->result->is_published)->count(),
+            'no_result_count'     => $noResultCount,
         ];
 
         $subjects            = Subject::orderBy('name')->get();
@@ -123,17 +138,70 @@ class ExamController extends Controller
         $assignedQuestionIds = $exam->questions->pluck('id')->toArray();
         $enrolledStudentIds  = $exam->enrolledStudents->pluck('id')->toArray();
 
-        // ✅ Filter out students whose user relationship is null (orphaned students)
         $availableStudents = Student::with('user')
                                     ->whereNotIn('id', $enrolledStudentIds)
-                                    ->whereHas('user') // only students WITH a linked user account
+                                    ->whereHas('user')
                                     ->get();
 
         return view('admin.exams.show', compact(
-            'exam', 'stats',
+            'exam', 'stats', 'attempts',
             'subjects', 'difficulties', 'assignedQuestionIds',
             'enrolledStudentIds', 'availableStudents'
         ));
+    }
+
+    // =========================================================
+    // ✅ NEW: SHOW ATTEMPT DETAIL — full question-by-question preview
+    // =========================================================
+    public function showAttempt(Exam $exam, ExamAttempt $attempt)
+    {
+        // Ensure the attempt belongs to this exam
+        if ($attempt->exam_id !== $exam->id) {
+            abort(404);
+        }
+
+        $attempt->load([
+            'student.user',
+            'result.subjectWiseResults.subject',
+            'answers.question.subject',
+            'answers.question.options',
+            'answers.selectedOption',
+        ]);
+
+        // Build an ordered list: question + student's answer + correct option
+        $questions = $attempt->answers->map(function ($answer) {
+            $question      = $answer->question;
+            $options       = $question?->options ?? collect();
+            $correctOption = $options->firstWhere('is_correct', true);
+            $selectedOpt   = $answer->selectedOption;
+
+            $answerStatus = 'unattempted';
+            if ($answer->isAttempted()) {
+                $answerStatus = $answer->isCorrect() ? 'correct' : 'wrong';
+            }
+            if ($answer->is_marked_for_review && ! $answer->isAttempted()) {
+                $answerStatus = 'review';
+            }
+
+            return [
+                'answer'         => $answer,
+                'question'       => $question,
+                'options'        => $options,
+                'correct_option' => $correctOption,
+                'selected_opt'   => $selectedOpt,
+                'status'         => $answerStatus,
+                'time_spent'     => $answer->time_spent_seconds ?? 0,
+            ];
+        })->sortBy(fn($item) => $item['question']?->pivot?->display_order ?? 0)->values();
+
+        $summaryStats = [
+            'total'       => $questions->count(),
+            'correct'     => $questions->where('status', 'correct')->count(),
+            'wrong'       => $questions->where('status', 'wrong')->count(),
+            'unattempted' => $questions->whereIn('status', ['unattempted', 'review'])->count(),
+        ];
+
+        return view('admin.exams.attempt-detail', compact('exam', 'attempt', 'questions', 'summaryStats'));
     }
 
     // =========================================================
@@ -192,6 +260,74 @@ class ExamController extends Controller
         }
         $exam->delete();
         return redirect()->route('admin.exams.index')->with('success', 'Exam deleted successfully!');
+    }
+
+    // =========================================================
+    // ✅ PUBLISH ALL RESULTS
+    // =========================================================
+    public function publishResults(Exam $exam)
+    {
+        $published = ExamResult::where('exam_id', $exam->id)
+                               ->where('is_published', false)
+                               ->update([
+                                   'is_published' => true,
+                                   'published_at' => now(),
+                               ]);
+
+        return back()->with('success', "{$published} result(s) published successfully! Students can now see their scores.");
+    }
+
+    // =========================================================
+    // ✅ PUBLISH SINGLE RESULT (AJAX)
+    // =========================================================
+    public function publishSingleResult(Exam $exam, ExamResult $result)
+    {
+        if ($result->exam_id !== $exam->id) {
+            return response()->json(['message' => 'Result does not belong to this exam.'], 422);
+        }
+
+        $result->update([
+            'is_published' => true,
+            'published_at' => now(),
+        ]);
+
+        return response()->json(['message' => 'Result published successfully!']);
+    }
+
+    // =========================================================
+    // ✅ RECALCULATE RESULTS
+    // =========================================================
+    public function recalculateResults(Exam $exam)
+    {
+        $missingAttempts = $exam->attempts()
+                                ->whereIn('status', ['submitted', 'auto_submitted'])
+                                ->whereDoesntHave('result')
+                                ->get();
+
+        if ($missingAttempts->isEmpty()) {
+            return back()->with('success', 'All attempts already have results. Nothing to recalculate.');
+        }
+
+        $service   = app(ResultCalculationService::class);
+        $succeeded = 0;
+        $failed    = 0;
+
+        foreach ($missingAttempts as $attempt) {
+            try {
+                $service->calculate($attempt);
+                $succeeded++;
+            } catch (\Throwable $e) {
+                $failed++;
+                Log::error("Admin recalculate: attempt {$attempt->id} failed — " . $e->getMessage());
+            }
+        }
+
+        $msg = "{$succeeded} result(s) calculated successfully.";
+        if ($failed > 0) {
+            $msg .= " {$failed} attempt(s) still failed — check laravel.log for details.";
+        }
+
+        return back()->with($failed > 0 ? 'error' : 'success', $msg);
     }
 
     // =========================================================
@@ -308,7 +444,6 @@ class ExamController extends Controller
 
     public function enrollAllStudents(Exam $exam)
     {
-        // ✅ Only enroll students who have a linked user account
         $allIds   = Student::whereHas('user')->pluck('id')->toArray();
         $enrolled = $exam->enrolledStudents()->pluck('students.id')->toArray();
         $toEnroll = array_diff($allIds, $enrolled);

@@ -43,15 +43,23 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::resource('users', UserController::class);
 
     // ── Exam Question Assignment (MUST be before resource) ────
-    Route::get('exams/{exam}/questions/search',         [AdminExamController::class, 'searchQuestions'])  ->name('exams.questions.search');
-    Route::post('exams/{exam}/questions/bulk-add',      [AdminExamController::class, 'bulkAddQuestions']) ->name('exams.questions.bulk-add');
-    Route::post('exams/{exam}/questions/{question}',    [AdminExamController::class, 'addQuestion'])      ->name('exams.questions.add');
-    Route::delete('exams/{exam}/questions/{question}',  [AdminExamController::class, 'removeQuestion'])   ->name('exams.questions.remove');
+    Route::get('exams/{exam}/questions/search',         [AdminExamController::class, 'searchQuestions'])   ->name('exams.questions.search');
+    Route::post('exams/{exam}/questions/bulk-add',      [AdminExamController::class, 'bulkAddQuestions'])  ->name('exams.questions.bulk-add');
+    Route::post('exams/{exam}/questions/{question}',    [AdminExamController::class, 'addQuestion'])       ->name('exams.questions.add');
+    Route::delete('exams/{exam}/questions/{question}',  [AdminExamController::class, 'removeQuestion'])    ->name('exams.questions.remove');
 
     // ── Exam Student Enrollment (MUST be before resource) ────
-    Route::post('exams/{exam}/students/enroll-all',     [AdminExamController::class, 'enrollAllStudents'])->name('exams.students.enroll-all');
-    Route::post('exams/{exam}/students/{student}',      [AdminExamController::class, 'enrollStudent'])    ->name('exams.students.enroll');
-    Route::delete('exams/{exam}/students/{student}',    [AdminExamController::class, 'unenrollStudent'])  ->name('exams.students.unenroll');
+    Route::post('exams/{exam}/students/enroll-all',     [AdminExamController::class, 'enrollAllStudents']) ->name('exams.students.enroll-all');
+    Route::post('exams/{exam}/students/{student}',      [AdminExamController::class, 'enrollStudent'])     ->name('exams.students.enroll');
+    Route::delete('exams/{exam}/students/{student}',    [AdminExamController::class, 'unenrollStudent'])   ->name('exams.students.unenroll');
+
+    // ✅ Exam Results — Publish, Recalculate & Attempt Preview (MUST be before resource)
+    Route::post('exams/{exam}/publish-results',                  [AdminExamController::class, 'publishResults'])      ->name('exams.publish-results');
+    Route::post('exams/{exam}/recalculate-results',              [AdminExamController::class, 'recalculateResults'])  ->name('exams.recalculate-results');
+    Route::post('exams/{exam}/results/{result}/publish',         [AdminExamController::class, 'publishSingleResult']) ->name('exams.results.publish-single');
+
+    // ✅ NEW: Student attempt preview
+    Route::get('exams/{exam}/attempts/{attempt}',                [AdminExamController::class, 'showAttempt'])         ->name('exams.attempts.show');
 
     // Exams resource (after all custom exam routes)
     Route::resource('exams', AdminExamController::class);

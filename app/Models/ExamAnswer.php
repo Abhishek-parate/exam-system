@@ -17,8 +17,8 @@ class ExamAnswer extends Model
 
     protected $casts = [
         'is_marked_for_review' => 'boolean',
-        'first_answered_at' => 'datetime',
-        'last_answered_at' => 'datetime',
+        'first_answered_at'    => 'datetime',
+        'last_answered_at'     => 'datetime',
     ];
 
     public function attempt()
@@ -41,30 +41,34 @@ class ExamAnswer extends Model
         return $this->hasMany(ExamAnswerTimeLog::class, 'answer_id');
     }
 
-    public function isCorrect()
+    /**
+     * ✅ FIXED: null-safe — selectedOption may be null if the option was deleted.
+     */
+    public function isCorrect(): bool
     {
-        if (!$this->selected_option_id) {
+        if (! $this->selected_option_id) {
             return false;
         }
-        
-        return $this->selectedOption->is_correct;
+
+        // selectedOption relationship may return null if the option row was deleted
+        return (bool) ($this->selectedOption?->is_correct ?? false);
     }
 
-    public function isAttempted()
+    public function isAttempted(): bool
     {
         return $this->selected_option_id !== null;
     }
 
-    public function getStatusAttribute()
+    public function getStatusAttribute(): string
     {
         if ($this->is_marked_for_review) {
             return 'review';
         }
-        
+
         if ($this->isAttempted()) {
             return 'attempted';
         }
-        
+
         return 'not_attempted';
     }
 }
