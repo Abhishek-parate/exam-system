@@ -212,8 +212,9 @@
                                     <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">Q{{ $index + 1 }}</span>
                                     <span class="text-xs text-gray-500">{{ $question->subject->name ?? 'N/A' }}</span>
                                 </div>
-                                <p class="text-gray-800 font-medium mb-2">{{ $question->question_text }}</p>
-                                
+<div class="text-gray-800 font-medium mb-2">
+    {!! $question->question_text !!}
+</div>                                
                                 @if($question->options && $question->options->count() > 0)
                                     <div class="mt-2 space-y-1">
                                         @foreach($question->options as $option)
