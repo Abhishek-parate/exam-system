@@ -11,10 +11,19 @@ class Question extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'exam_category_id', 'subject_id', 'chapter_id', 'topic_id',
-        'difficulty_id', 'question_text', 'question_image', 
-        'marks', 'negative_marks', 'explanation', 'explanation_image',
-        'is_active', 'created_by'
+     'exam_category_id',
+    'subject_id',
+    'chapter_id',   // ✅ must be here
+    'topic_id',     // ✅ must be here
+    'difficulty_id',
+    'question_text',
+    'question_image',
+    'marks',
+    'negative_marks',
+    'explanation',
+    'explanation_image',
+    'is_active',
+    'created_by',
     ];
 
     protected $casts = [

@@ -318,11 +318,11 @@
                     </div>
                     <div>
                         <label class="block text-gray-700 text-sm font-bold mb-2">Correct Marks <span class="text-red-500">*</span></label>
-                        <input type="number" name="marking_schemes[${markingSchemeCount}][correct_marks]" step="0.01" min="0" value="1" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                        <input type="number" name="marking_schemes[${markingSchemeCount}][correct_marks]" step="1" min="0" value="4" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
                     </div>
                     <div>
                         <label class="block text-gray-700 text-sm font-bold mb-2">Wrong Marks <span class="text-red-500">*</span></label>
-                        <input type="number" name="marking_schemes[${markingSchemeCount}][wrong_marks]" step="0.01" min="0" value="0.25" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                        <input type="number" name="marking_schemes[${markingSchemeCount}][wrong_marks]" step="1" min="0" value="1" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
                     </div>
                 </div>
                 <button type="button" onclick="this.parentElement.remove(); updateSelectedCount();" class="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-sm">Remove</button>

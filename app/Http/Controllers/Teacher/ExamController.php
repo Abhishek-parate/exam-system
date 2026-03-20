@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
 use App\Models\Exam;
+use App\Models\ExamAttempt;
 use App\Models\ExamCategory;
 use App\Models\ExamMarkingScheme;
 use App\Models\Question;
@@ -118,22 +119,21 @@ class ExamController extends Controller
     public function show($id)
     {
         $exam = Exam::with([
-            'examCategory', 
-            'questions.subject', 
+            'examCategory',
+            'questions.subject',
             'questions.options',
-            'markingSchemes.subject', 
+            'markingSchemes.subject',
             'attempts.student.user'
         ])->where('created_by', auth()->id())->findOrFail($id);
 
         $statistics = [
-            'total_questions' => $exam->questions()->count(),
-            'total_attempts' => $exam->attempts()->count(),
+            'total_questions'    => $exam->questions()->count(),
+            'total_attempts'     => $exam->attempts()->count(),
             'completed_attempts' => $exam->attempts()->whereIn('status', ['submitted', 'auto_submitted'])->count(),
-            'in_progress' => $exam->attempts()->where('status', 'in_progress')->count(),
-            'average_score' => $this->calculateAverageScore($exam),
+            'in_progress'        => $exam->attempts()->where('status', 'in_progress')->count(),
+            'average_score'      => $this->calculateAverageScore($exam),
         ];
 
-        // Get exam status
         $now = now();
         if ($now->lt($exam->start_time)) {
             $status = 'Scheduled';
@@ -146,30 +146,73 @@ class ExamController extends Controller
         return view('teacher.exams.show', compact('exam', 'statistics', 'status'));
     }
 
-    /**
-     * Calculate average score for an exam
-     */
+    // ✅ NEW — Attempt detail
+    public function showAttempt($examId, $attemptId)
+    {
+        $exam = Exam::where('created_by', auth()->id())->findOrFail($examId);
+
+        $attempt = ExamAttempt::with([
+            'student.user',
+            'result.subjectWiseResults.subject',
+            'answers.question.subject',
+            'answers.question.difficulty',
+            'answers.question.options',
+            'answers.selectedOption',
+        ])->where('exam_id', $exam->id)->findOrFail($attemptId);
+
+        $questions = $attempt->answers->map(function ($answer) {
+            $question      = $answer->question;
+            $options       = $question?->options ?? collect();
+            $correctOption = $options->firstWhere('is_correct', true);
+            $selectedOpt   = $answer->selectedOption;
+
+            $status = 'unattempted';
+            if ($answer->selected_option_id) {
+                $status = $selectedOpt?->is_correct ? 'correct' : 'wrong';
+            }
+            if ($answer->is_marked_for_review && !$answer->selected_option_id) {
+                $status = 'review';
+            }
+
+            return [
+                'answer'         => $answer,
+                'question'       => $question,
+                'options'        => $options,
+                'correct_option' => $correctOption,
+                'selected_opt'   => $selectedOpt,
+                'status'         => $status,
+                'time_spent'     => (int) ($answer->time_spent_seconds ?? 0),
+            ];
+        })->sortBy(fn($item) => $item['answer']->id)->values();
+
+        $summaryStats = [
+            'total'       => $questions->count(),
+            'correct'     => $questions->where('status', 'correct')->count(),
+            'wrong'       => $questions->where('status', 'wrong')->count(),
+            'unattempted' => $questions->whereIn('status', ['unattempted', 'review'])->count(),
+        ];
+
+        return view('teacher.exams.attempt-detail', compact('exam', 'attempt', 'questions', 'summaryStats'));
+    }
+
     private function calculateAverageScore($exam)
     {
         try {
-            // Try to get from exam_results table
             if (method_exists($exam, 'results') && $exam->results()->exists()) {
                 $avgMarks = $exam->results()
                     ->where('is_published', true)
                     ->avg('obtained_marks');
-                
+
                 if ($avgMarks && $exam->total_marks > 0) {
                     return round(($avgMarks / $exam->total_marks) * 100, 2);
                 }
             }
-            
-            // Try to calculate from exam_attempts if it has obtained_marks
+
             $completedAttempts = $exam->attempts()
                 ->whereIn('status', ['submitted', 'auto_submitted'])
                 ->get();
-            
+
             if ($completedAttempts->count() > 0 && $exam->total_marks > 0) {
-                // Check if obtained_marks column exists
                 $firstAttempt = $completedAttempts->first();
                 if (isset($firstAttempt->obtained_marks)) {
                     $avgMarks = $completedAttempts->avg('obtained_marks');
@@ -177,9 +220,9 @@ class ExamController extends Controller
                 }
             }
         } catch (\Exception $e) {
-            // Silently fail and return 0
+            // Silently fail
         }
-        
+
         return 0;
     }
 
@@ -291,11 +334,11 @@ class ExamController extends Controller
             }
 
             DB::beginTransaction();
-            
+
             $exam->markingSchemes()->delete();
             $exam->questions()->detach();
             $exam->delete();
-            
+
             DB::commit();
 
             return redirect()->route('teacher.exams.index')
@@ -311,7 +354,7 @@ class ExamController extends Controller
         $this->authorize('update', $exam);
 
         $request->validate([
-            'student_ids' => 'required|array',
+            'student_ids'   => 'required|array',
             'student_ids.*' => 'exists:students,id',
         ]);
 
@@ -326,16 +369,10 @@ class ExamController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Students enrolled successfully'
-            ]);
+            return response()->json(['success' => true, 'message' => 'Students enrolled successfully']);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to enroll students'
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Failed to enroll students'], 500);
         }
     }
 
@@ -349,15 +386,9 @@ class ExamController extends Controller
                 'published_at' => now(),
             ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Results published successfully'
-            ]);
+            return response()->json(['success' => true, 'message' => 'Results published successfully']);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to publish results'
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Failed to publish results'], 500);
         }
     }
 
