@@ -6,15 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Models\ExamCategory;
 use App\Models\Subject;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class SubjectController extends Controller
 {
+    /**
+     * Display subjects list
+     */
     public function index(Request $request)
     {
-        $query = Subject::with('examCategory');
+        $query = Subject::with('examCategory')
+                        ->withCount('questions'); // ✅ FIX (important)
 
-        // Apply filters
+        // Filters
         if ($request->filled('exam_category_id')) {
             $query->where('exam_category_id', $request->exam_category_id);
         }
@@ -33,12 +36,18 @@ class SubjectController extends Controller
         return view('admin.subjects.index', compact('subjects', 'examCategories'));
     }
 
+    /**
+     * Show create form
+     */
     public function create()
     {
         $examCategories = ExamCategory::where('is_active', true)->get();
         return view('admin.subjects.create', compact('examCategories'));
     }
 
+    /**
+     * Store subject
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -49,11 +58,10 @@ class SubjectController extends Controller
             'is_active' => 'boolean',
         ]);
 
-        // Convert empty strings to NULL
-        $validated['exam_category_id'] = !empty($validated['exam_category_id']) ? $validated['exam_category_id'] : null;
-        $validated['code'] = !empty($validated['code']) ? $validated['code'] : null;
-        $validated['description'] = !empty($validated['description']) ? $validated['description'] : null;
-        $validated['is_active'] = $request->has('is_active') ? true : false;
+        $validated['exam_category_id'] = $validated['exam_category_id'] ?? null;
+        $validated['code'] = $validated['code'] ?? null;
+        $validated['description'] = $validated['description'] ?? null;
+        $validated['is_active'] = $request->has('is_active');
 
         Subject::create($validated);
 
@@ -61,11 +69,13 @@ class SubjectController extends Controller
             ->with('success', 'Subject created successfully!');
     }
 
+    /**
+     * Show subject
+     */
     public function show(Subject $subject)
     {
         $subject->load(['examCategory', 'chapters', 'questions']);
-        
-        // Get statistics
+
         $stats = [
             'total_questions' => $subject->questions()->count(),
             'active_questions' => $subject->questions()->where('is_active', true)->count(),
@@ -75,12 +85,18 @@ class SubjectController extends Controller
         return view('admin.subjects.show', compact('subject', 'stats'));
     }
 
+    /**
+     * Edit form
+     */
     public function edit(Subject $subject)
     {
         $examCategories = ExamCategory::where('is_active', true)->get();
         return view('admin.subjects.edit', compact('subject', 'examCategories'));
     }
 
+    /**
+     * Update subject
+     */
     public function update(Request $request, Subject $subject)
     {
         $validated = $request->validate([
@@ -91,11 +107,10 @@ class SubjectController extends Controller
             'is_active' => 'boolean',
         ]);
 
-        // Convert empty strings to NULL
-        $validated['exam_category_id'] = !empty($validated['exam_category_id']) ? $validated['exam_category_id'] : null;
-        $validated['code'] = !empty($validated['code']) ? $validated['code'] : null;
-        $validated['description'] = !empty($validated['description']) ? $validated['description'] : null;
-        $validated['is_active'] = $request->has('is_active') ? true : false;
+        $validated['exam_category_id'] = $validated['exam_category_id'] ?? null;
+        $validated['code'] = $validated['code'] ?? null;
+        $validated['description'] = $validated['description'] ?? null;
+        $validated['is_active'] = $request->has('is_active');
 
         $subject->update($validated);
 
@@ -103,12 +118,14 @@ class SubjectController extends Controller
             ->with('success', 'Subject updated successfully!');
     }
 
+    /**
+     * Delete subject
+     */
     public function destroy(Subject $subject)
     {
         try {
-            // Check if subject has questions
             if ($subject->questions()->count() > 0) {
-                return back()->with('error', 'Cannot delete subject with existing questions. Please delete all questions first.');
+                return back()->with('error', 'Cannot delete subject with existing questions.');
             }
 
             $subject->delete();
@@ -116,7 +133,7 @@ class SubjectController extends Controller
             return redirect()->route('admin.subjects.index')
                 ->with('success', 'Subject deleted successfully!');
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to delete subject: ' . $e->getMessage());
+            return back()->with('error', 'Error: ' . $e->getMessage());
         }
     }
 }

@@ -54,19 +54,16 @@ class ExamAttemptController extends Controller
         if (! $this->studentCanAccessExam($exam, $student)) {
             abort(403, 'You do not have access to this exam.');
         }
-
         if ($student->hasAttemptedExam($exam->id)) {
             return redirect()->route('student.exams.index')
                              ->with('error', 'You have already attempted this exam.');
         }
-
         if (! $exam->canBeAttempted()) {
             return redirect()->route('student.exams.index')
                              ->with('error', 'This exam is not currently available.');
         }
 
         $exam->load(['examCategory', 'markingSchemes.subject']);
-
         return view('student.exams.instructions', compact('exam'));
     }
 
@@ -80,11 +77,9 @@ class ExamAttemptController extends Controller
         if (! $this->studentCanAccessExam($exam, $student)) {
             return response()->json(['success' => false, 'message' => 'Access denied.'], 403);
         }
-
         if (! $exam->canBeAttempted()) {
             return response()->json(['success' => false, 'message' => 'Exam is not available.'], 403);
         }
-
         if ($student->hasAttemptedExam($exam->id)) {
             return response()->json(['success' => false, 'message' => 'Already attempted.'], 403);
         }
@@ -108,7 +103,6 @@ class ExamAttemptController extends Controller
             }
 
             DB::commit();
-
             return response()->json([
                 'success'      => true,
                 'redirect_url' => route('student.exams.attempt', $attempt->attempt_token),
@@ -135,7 +129,6 @@ class ExamAttemptController extends Controller
         if ($attempt->isSubmitted()) {
             return redirect()->route('student.exams.index')->with('info', 'Exam already submitted.');
         }
-
         if ($attempt->getRemainingTimeSeconds() <= 0) {
             $this->autoSubmit($attempt);
             return redirect()->route('student.exams.index')->with('info', 'Time expired. Auto-submitted.');
@@ -149,7 +142,7 @@ class ExamAttemptController extends Controller
     }
 
     // -------------------------------------------------------
-    // AJAX — Save answer
+    // AJAX — Save answer (handles both MCQ option_id & subjective text_answer)
     // -------------------------------------------------------
     public function saveAnswer(Request $request, $attemptToken)
     {
@@ -162,6 +155,7 @@ class ExamAttemptController extends Controller
         $request->validate([
             'question_id'          => 'required|exists:questions,id',
             'option_id'            => 'nullable|exists:question_options,id',
+            'text_answer'          => 'nullable|string|max:5000',
             'is_marked_for_review' => 'nullable|boolean',
         ]);
 
@@ -174,14 +168,27 @@ class ExamAttemptController extends Controller
                 return response()->json(['success' => false, 'message' => 'Invalid question.'], 400);
             }
 
-            $answer->update([
-                'selected_option_id'   => $request->option_id,
+            $updateData = [
                 'is_marked_for_review' => $request->is_marked_for_review ?? false,
                 'last_answered_at'     => now(),
                 'first_answered_at'    => $answer->first_answered_at ?? now(),
-            ]);
+            ];
 
-            return response()->json(['success' => true, 'status' => $answer->status]);
+            // MCQ — option_id present in request
+            if ($request->has('option_id')) {
+                $updateData['selected_option_id'] = $request->option_id;
+            }
+
+            // Subjective — text_answer present in request
+            if ($request->has('text_answer')) {
+                $updateData['text_answer'] = $request->text_answer
+                    ? trim($request->text_answer)
+                    : null;
+            }
+
+            $answer->update($updateData);
+
+            return response()->json(['success' => true, 'status' => $answer->status ?? 'saved']);
 
         } catch (\Exception $e) {
             Log::error('Save answer failed: ' . $e->getMessage());
@@ -259,7 +266,7 @@ class ExamAttemptController extends Controller
     }
 
     // -------------------------------------------------------
-    // ✅ Submit — result calculation failure no longer blocks submission
+    // Submit
     // -------------------------------------------------------
     public function submit(Request $request, $attemptToken)
     {
@@ -271,27 +278,21 @@ class ExamAttemptController extends Controller
 
         DB::beginTransaction();
         try {
-            // ✅ Step 1: Mark attempt as submitted
             $attempt->update([
                 'submitted_at'       => now(),
                 'status'             => 'submitted',
                 'time_taken_seconds' => now()->diffInSeconds($attempt->started_at),
             ]);
-
             DB::commit();
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Exam submission failed: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Submission failed. Please try again.'], 500);
         }
 
-        // ✅ Step 2: Calculate result SEPARATELY from the commit
-        // If this fails, submission is already saved — student won't lose their work
         try {
             $this->calculateResult($attempt);
         } catch (\Exception $e) {
-            // Log but don't fail the response — result can be recalculated later by admin
             Log::error('Result calculation failed for attempt ' . $attempt->id . ': ' . $e->getMessage());
         }
 
@@ -314,16 +315,12 @@ class ExamAttemptController extends Controller
         }
 
         $openExams = Exam::where(function ($q) {
-                            $q->where('enrollment_type', 'open')
-                              ->orWhereNull('enrollment_type');
-                         })
-                         ->with('examCategory')
-                         ->get();
+            $q->where('enrollment_type', 'open')->orWhereNull('enrollment_type');
+        })->with('examCategory')->get();
 
         $enrolledOnlyExams = $student->enrolledExams()
                                       ->where('enrollment_type', 'enrolled')
-                                      ->with('examCategory')
-                                      ->get();
+                                      ->with('examCategory')->get();
 
         return $openExams->merge($enrolledOnlyExams)->unique('id');
     }
@@ -331,11 +328,8 @@ class ExamAttemptController extends Controller
     private function studentCanAccessExam(Exam $exam, $student): bool
     {
         $hasEnrollmentType = Schema::hasColumn('exams', 'enrollment_type');
-
         if (! $hasEnrollmentType) return true;
-
         if (is_null($exam->enrollment_type) || $exam->enrollment_type === 'open') return true;
-
         return $exam->enrolledStudents()
                     ->where('student_id', $student->id)
                     ->where('is_enrolled', true)
@@ -357,7 +351,6 @@ class ExamAttemptController extends Controller
             Log::error('Auto-submit failed: ' . $e->getMessage());
         }
 
-        // Calculate result separately
         try {
             $this->calculateResult($attempt);
         } catch (\Exception $e) {

@@ -10,48 +10,78 @@
     .option-btn:hover  { border-color: #3b82f6; background: #eff6ff; }
     .option-selected   { border-color: #2563eb !important; background: #dbeafe !important; }
 
-    .question-content img,
-    .option-content img {
+    .question-content img, .option-content img {
         max-width: 100%; height: auto; border-radius: 6px;
         margin: 8px 0; display: inline-block;
     }
     .question-content p, .option-content p { margin: 0; line-height: 1.6; }
 
     .timer-warning { color: #d97706; }
-    .timer-danger  { color: #dc2626; animation: pulse 1s infinite; }
+    .timer-danger  { color: #dc2626; animation: blink 1s infinite; }
 
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50%       { opacity: 0.6; }
-    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
-    /* Per-question time badge on nav buttons */
     .nav-time-badge {
-        display: block;
-        font-size: 9px;
-        font-weight: 600;
-        line-height: 1;
-        margin-top: 2px;
-        color: inherit;
-        opacity: 0.75;
-        letter-spacing: 0;
+        display: block; font-size: 9px; font-weight: 600;
+        line-height: 1; margin-top: 2px; opacity: 0.75;
     }
 
-    /* Active question nav highlight */
-    .nav-btn-active {
-        outline: 2px solid #6366f1;
-        outline-offset: 1px;
+    .nav-btn-active { outline: 2px solid #6366f1; outline-offset: 1px; }
+
+    /* Subjective textarea */
+    .subj-textarea {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #d8b4fe;
+        border-radius: 10px;
+        background: #faf5ff;
+        color: #1f2937;
+        font-size: 14px;
+        line-height: 1.6;
+        resize: vertical;
+        min-height: 110px;
+        font-family: inherit;
+        transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    }
+    .subj-textarea:focus {
+        outline: none;
+        border-color: #7c3aed;
+        background: #ffffff;
+        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+    }
+    .subj-textarea.answered {
+        border-color: #7c3aed;
+        background: #ffffff;
     }
 
-    /* Per-question timer strip */
-    #question-timer-strip {
-        font-variant-numeric: tabular-nums;
+    /* Subjective wrapper */
+    .subj-wrapper {
+        padding: 16px;
+        background: #f5f3ff;
+        border: 2px solid #c4b5fd;
+        border-radius: 12px;
+    }
+    .subj-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #6d28d9;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 10px;
+    }
+    .subj-hint {
+        font-size: 11px;
+        color: #8b5cf6;
+        margin-top: 6px;
     }
 </style>
 
 <div class="flex flex-col h-screen overflow-hidden bg-gray-100">
 
-    {{-- ═══ TOP BAR ═══ --}}
+    {{-- TOP BAR --}}
     <div class="bg-white border-b border-gray-200 shadow-sm shrink-0 z-50">
         <div class="flex items-center justify-between px-4 py-3">
             <div class="min-w-0">
@@ -59,12 +89,10 @@
                 <p class="text-xs text-gray-500">{{ $attempt->exam->examCategory?->name ?? 'General' }}</p>
             </div>
             <div class="flex items-center gap-4 shrink-0">
-                {{-- Exam timer --}}
                 <div class="text-center">
                     <div id="timer" class="text-xl font-bold font-mono text-green-600 tabular-nums">--:--</div>
                     <p class="text-xs text-gray-400">Time Left</p>
                 </div>
-                {{-- Current question time --}}
                 <div class="text-center hidden sm:block">
                     <div id="question-timer-strip" class="text-lg font-bold font-mono text-indigo-500 tabular-nums">0:00</div>
                     <p class="text-xs text-gray-400">This Question</p>
@@ -75,54 +103,70 @@
                 </button>
             </div>
         </div>
-        {{-- Exam progress bar --}}
         <div class="h-1 bg-gray-100">
             <div id="progress-bar" class="h-1 bg-blue-500 transition-all duration-500" style="width:0%"></div>
         </div>
     </div>
 
-    {{-- ═══ BODY ═══ --}}
+    {{-- BODY --}}
     <div class="flex flex-1 overflow-hidden">
 
-        {{-- ── Question Area ── --}}
+        {{-- Question Area --}}
         <div class="flex-1 overflow-y-auto p-4" id="question-scroll-area">
+
             @foreach($questions as $index => $question)
-            @php $answer = $attempt->answers->firstWhere('question_id', $question->id); @endphp
+            @php
+                $answer = $attempt->answers->firstWhere('question_id', $question->id);
+
+                /*
+                 * Robust type detection:
+                 * 1. Use stored question_type if available and set
+                 * 2. If null/empty: infer from whether options exist
+                 *    - No options => subjective (text input)
+                 *    - Has options => mcq (radio buttons)
+                 */
+                $storedType   = $question->question_type ?? null;
+                $questionType = $storedType ?: ($question->options->isEmpty() ? 'subjective' : 'mcq');
+            @endphp
 
             <div id="question-{{ $question->id }}"
                  class="question-block bg-white rounded-xl shadow p-5 {{ $index > 0 ? 'hidden' : '' }}"
                  data-question-id="{{ $question->id }}"
-                 data-index="{{ $index }}">
+                 data-index="{{ $index }}"
+                 data-question-type="{{ $questionType }}">
 
                 {{-- Q Header --}}
                 <div class="flex justify-between items-start mb-3 flex-wrap gap-2">
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3 flex-wrap">
                         <span class="text-sm font-semibold text-gray-500">
                             Question {{ $index + 1 }} / {{ $questions->count() }}
                         </span>
-                        {{-- Live time spent on THIS question --}}
                         <span class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-500 bg-indigo-50 border border-indigo-100 rounded-full px-2.5 py-0.5">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                             </svg>
                             <span class="q-inline-timer" data-qid="{{ $question->id }}">0s</span>
                         </span>
+                        @if($questionType === 'subjective')
+                            <span class="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 bg-purple-50 border border-purple-200 rounded-full px-2.5 py-0.5">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                                Subjective
+                            </span>
+                        @endif
                     </div>
                     <div class="flex gap-2 flex-wrap">
                         @php $dn = strtolower($question->difficulty?->name ?? ''); @endphp
                         <span class="px-2 py-0.5 text-xs rounded-full font-medium
-                            @if($dn==='easy') bg-green-100 text-green-700
-                            @elseif($dn==='medium') bg-yellow-100 text-yellow-700
+                            @if($dn === 'easy') bg-green-100 text-green-700
+                            @elseif($dn === 'medium') bg-yellow-100 text-yellow-700
                             @else bg-red-100 text-red-700 @endif">
                             {{ $question->difficulty?->name ?? 'N/A' }}
                         </span>
-                        <span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full font-medium">
-                            +{{ $question->marks }}
-                        </span>
+                        <span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full font-medium">+{{ $question->marks }}</span>
                         @if($question->negative_marks > 0)
-                        <span class="px-2 py-0.5 text-xs bg-red-50 text-red-600 rounded-full font-medium">
-                            -{{ $question->negative_marks }}
-                        </span>
+                            <span class="px-2 py-0.5 text-xs bg-red-50 text-red-600 rounded-full font-medium">-{{ $question->negative_marks }}</span>
                         @endif
                     </div>
                 </div>
@@ -132,32 +176,66 @@
                     {!! $question->question_text !!}
                 </div>
 
-                {{-- Options --}}
-                <div class="space-y-2">
-                    @foreach($question->options as $option)
-                    <div id="option-label-{{ $option->id }}"
-                         onclick="selectOption({{ $question->id }}, {{ $option->id }}, this)"
-                         class="option-btn flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer transition
-                                {{ $answer && $answer->selected_option_id == $option->id ? 'option-selected' : 'border-gray-200' }}">
-                        <input type="radio"
-                               name="q{{ $question->id }}"
-                               value="{{ $option->id }}"
-                               {{ $answer && $answer->selected_option_id == $option->id ? 'checked' : '' }}
-                               class="mt-0.5 shrink-0 w-4 h-4 text-blue-600 pointer-events-none">
-                        <div class="option-content text-gray-800 text-sm leading-relaxed min-w-0 flex-1">
-                            {!! $option->option_text !!}
-                        </div>
-                    </div>
-                    @endforeach
-                </div>
+                {{-- ====================================================
+                     ANSWER INPUT -- subjective textarea OR mcq radio
+                ==================================================== --}}
+                @if($questionType === 'subjective')
 
-                {{-- Footer --}}
+                    {{-- SUBJECTIVE TEXT INPUT --}}
+                    <div class="subj-wrapper">
+                        <div class="subj-label">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                            Write your answer below
+                        </div>
+                        <textarea
+                            id="text-answer-{{ $question->id }}"
+                            oninput="handleTextAnswer({{ $question->id }}, this.value)"
+                            placeholder="Type your answer here..."
+                            class="subj-textarea {{ ($answer && $answer->text_answer && trim($answer->text_answer) !== '') ? 'answered' : '' }}"
+                        >{{ ($answer && $answer->text_answer) ? $answer->text_answer : '' }}</textarea>
+                        <p class="subj-hint">Your answer is saved automatically as you type.</p>
+                    </div>
+
+                @else
+
+                    {{-- MCQ RADIO OPTIONS --}}
+                    @if($question->options->count() > 0)
+                        <div class="space-y-2">
+                            @foreach($question->options as $option)
+                            <div id="option-label-{{ $option->id }}"
+                                 onclick="selectOption({{ $question->id }}, {{ $option->id }}, this)"
+                                 class="option-btn flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer transition
+                                        {{ ($answer && $answer->selected_option_id == $option->id) ? 'option-selected' : 'border-gray-200' }}">
+                                <input type="radio"
+                                       name="q{{ $question->id }}"
+                                       value="{{ $option->id }}"
+                                       {{ ($answer && $answer->selected_option_id == $option->id) ? 'checked' : '' }}
+                                       class="mt-0.5 shrink-0 w-4 h-4 text-blue-600 pointer-events-none">
+                                <div class="option-content text-gray-800 text-sm leading-relaxed min-w-0 flex-1">
+                                    {!! $option->option_text !!}
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                    @else
+                        {{-- Safety net: no options found at all --}}
+                        <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <p class="text-yellow-700 text-sm">No answer options available for this question.</p>
+                        </div>
+                    @endif
+
+                @endif
+                {{-- ==================================================== --}}
+
+                {{-- Footer: review + clear --}}
                 <div class="mt-4 flex justify-between items-center flex-wrap gap-2">
                     <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-600 select-none"
                            onclick="toggleReview({{ $question->id }}, this)">
                         <input type="checkbox"
                                id="review-{{ $question->id }}"
-                               {{ $answer && $answer->is_marked_for_review ? 'checked' : '' }}
+                               {{ ($answer && $answer->is_marked_for_review) ? 'checked' : '' }}
                                class="rounded w-4 h-4 pointer-events-none">
                         <span>Mark for Review</span>
                     </label>
@@ -167,51 +245,52 @@
                     </button>
                 </div>
 
-                {{-- Navigation --}}
+                {{-- Prev / Next --}}
                 <div class="mt-4 flex justify-between items-center border-t border-gray-100 pt-4">
                     <button onclick="goToQuestion({{ $index - 1 }})"
                             {{ $index === 0 ? 'disabled' : '' }}
-                            class="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300
-                                   hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
-                        ← Prev
+                            class="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                        &larr; Prev
                     </button>
                     <span class="text-xs text-gray-400">{{ $index + 1 }} / {{ $questions->count() }}</span>
                     @if($index < $questions->count() - 1)
-                    <button onclick="goToQuestion({{ $index + 1 }})"
-                            class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
-                        Next →
-                    </button>
+                        <button onclick="goToQuestion({{ $index + 1 }})"
+                                class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
+                            Next &rarr;
+                        </button>
                     @else
-                    <button onclick="confirmSubmit()"
-                            class="px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg transition">
-                        Submit →
-                    </button>
+                        <button onclick="confirmSubmit()"
+                                class="px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg transition">
+                            Submit &rarr;
+                        </button>
                     @endif
                 </div>
 
             </div>
             @endforeach
+
         </div>
 
-        {{-- ═══ NAVIGATOR SIDEBAR ═══ --}}
+        {{-- NAVIGATOR SIDEBAR --}}
         <div class="w-56 shrink-0 overflow-y-auto bg-white border-l border-gray-200 p-3">
             <h3 class="text-xs font-bold text-gray-600 mb-3 uppercase tracking-wide">Navigator</h3>
 
             <div class="grid grid-cols-5 gap-1.5 mb-4">
                 @foreach($questions as $index => $question)
                 @php
-                    $ans = $attempt->answers->firstWhere('question_id', $question->id);
-                    $isAnswered = $ans && $ans->selected_option_id;
+                    $ans        = $attempt->answers->firstWhere('question_id', $question->id);
+                    $isAnswered = $ans && ($ans->selected_option_id || ($ans->text_answer && trim($ans->text_answer) !== ''));
                     $isReview   = $ans && $ans->is_marked_for_review;
                 @endphp
-                {{-- Nav button: shows number + time spent --}}
                 <button id="nav-btn-{{ $question->id }}"
                         onclick="goToQuestion({{ $index }})"
-                        title="Q{{ $index + 1 }} — click to jump"
+                        title="Q{{ $index + 1 }}"
                         class="h-10 w-full text-xs font-bold rounded-lg border-2 transition flex flex-col items-center justify-center leading-none
-                               {{ $isReview   ? 'bg-yellow-100 border-yellow-400 text-yellow-800' :
-                                  ($isAnswered ? 'bg-green-100 border-green-400 text-green-800' :
-                                                 'bg-gray-50 border-gray-200 text-gray-600') }}
+                               {{ $isReview
+                                   ? 'bg-yellow-100 border-yellow-400 text-yellow-800'
+                                   : ($isAnswered
+                                       ? 'bg-green-100 border-green-400 text-green-800'
+                                       : 'bg-gray-50 border-gray-200 text-gray-600') }}
                                {{ $index === 0 ? 'nav-btn-active' : '' }}">
                     <span>{{ $index + 1 }}</span>
                     <span class="nav-time-badge" id="nav-time-{{ $question->id }}">0s</span>
@@ -271,48 +350,41 @@
 </div>
 
 <script>
-    // ── Constants ──────────────────────────────────────────
     var ATTEMPT_TOKEN   = '{{ $attempt->attempt_token }}';
     var TOTAL_QUESTIONS = {{ $questions->count() }};
     var REMAINING_SECS  = {{ max(0, $attempt->getRemainingTimeSeconds()) }};
     var CSRF_TOKEN      = '{{ csrf_token() }}';
-    var URL_SAVE        = "{{ url('student/exams/' . $attempt->attempt_token . '/save-answer') }}";
-    var URL_TRACK       = "{{ url('student/exams/' . $attempt->attempt_token . '/track-time') }}";
-    var URL_STATUS      = "{{ url('student/exams/' . $attempt->attempt_token . '/status') }}";
-    var URL_SUBMIT      = "{{ url('student/exams/' . $attempt->attempt_token . '/submit') }}";
+    var URL_SAVE   = "{{ url('student/exams/' . $attempt->attempt_token . '/save-answer') }}";
+    var URL_TRACK  = "{{ url('student/exams/' . $attempt->attempt_token . '/track-time') }}";
+    var URL_STATUS = "{{ url('student/exams/' . $attempt->attempt_token . '/status') }}";
+    var URL_SUBMIT = "{{ url('student/exams/' . $attempt->attempt_token . '/submit') }}";
 
-    var currentIndex    = 0;
-    var timerInterval   = null;
-    var questionIds     = [];
+    var currentIndex     = 0;
+    var timerInterval    = null;
+    var questionIds      = [];
+    var questionTimes    = {};
+    var currentQStart    = Date.now();
+    var textDebounce     = {};
 
-    // ── Per-question time tracking ─────────────────────────
-    // questionTimes[qId] = total seconds accumulated on that question
-    var questionTimes   = {};
-    // currentQStart = timestamp (ms) when we arrived at the current question
-    var currentQStart   = Date.now();
-    // Last time we flushed the current question's running time to questionTimes
-    var lastFlush       = Date.now();
-
-    document.querySelectorAll('.question-block').forEach(function(el) {
+    document.querySelectorAll('.question-block').forEach(function (el) {
         var qId = parseInt(el.dataset.questionId);
         questionIds.push(qId);
         questionTimes[qId] = 0;
     });
 
-    // ── Init ───────────────────────────────────────────────
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         startTimer();
         updateSummary();
         updateProgressBar();
         startStatusPoll();
-        startQuestionTimerDisplay();
+        startQTimerDisplay();
     });
 
-    // ── Exam-level countdown ───────────────────────────────
+    // ---- Exam countdown ------------------------------------------
     function startTimer() {
         var s = REMAINING_SECS;
         renderTimer(s);
-        timerInterval = setInterval(function() {
+        timerInterval = setInterval(function () {
             s--;
             renderTimer(s);
             if (s <= 0) { clearInterval(timerInterval); autoSubmit(); }
@@ -321,114 +393,84 @@
 
     function renderTimer(s) {
         if (s < 0) s = 0;
-        var h = Math.floor(s / 3600);
-        var m = Math.floor((s % 3600) / 60);
-        var sec = s % 60;
-        var str = h > 0 ? pad(h)+':'+pad(m)+':'+pad(sec) : pad(m)+':'+pad(sec);
+        var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+        var str = h > 0 ? pad(h) + ':' + pad(m) + ':' + pad(sec) : pad(m) + ':' + pad(sec);
         var el = document.getElementById('timer');
         el.textContent = str;
         el.className = 'text-xl font-bold font-mono tabular-nums ' +
             (s <= 300 ? 'timer-danger' : s <= 600 ? 'timer-warning' : 'text-green-600');
     }
 
-    function pad(n) { return n < 10 ? '0'+n : ''+n; }
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
-    // ── Per-question live display ──────────────────────────
-    // Ticks every second, updates the visible timers for the current question
-    function startQuestionTimerDisplay() {
-        setInterval(function() {
+    // ---- Per-question timer display ------------------------------
+    function startQTimerDisplay() {
+        setInterval(function () {
             var qId = questionIds[currentIndex];
             if (!qId) return;
-
-            // Elapsed on the current visit (not yet flushed)
             var elapsed = Math.floor((Date.now() - currentQStart) / 1000);
             var total   = questionTimes[qId] + elapsed;
 
-            // Top-bar strip
             var strip = document.getElementById('question-timer-strip');
-            if (strip) strip.textContent = formatTime(total);
+            if (strip) strip.textContent = fmtTime(total);
 
-            // Inline badge inside the question card
             var badge = document.querySelector('.q-inline-timer[data-qid="' + qId + '"]');
-            if (badge) badge.textContent = formatTime(total);
+            if (badge) badge.textContent = fmtTime(total);
 
-            // Navigator button badge
             var navBadge = document.getElementById('nav-time-' + qId);
-            if (navBadge) navBadge.textContent = formatTime(total);
+            if (navBadge) navBadge.textContent = fmtTime(total);
 
-            // Sidebar total time used
-            var totalUsed = getTotalTimeUsed(qId, elapsed);
-            var summaryEl = document.getElementById('summary-time-used');
-            if (summaryEl) summaryEl.textContent = formatTime(totalUsed);
+            var used = 0;
+            for (var id in questionTimes) { used += questionTimes[id]; }
+            used += elapsed;
+            var su = document.getElementById('summary-time-used');
+            if (su) su.textContent = fmtTime(used);
         }, 1000);
     }
 
-    // Returns total seconds spent across ALL questions
-    function getTotalTimeUsed(activeQId, activeElapsed) {
-        var t = 0;
-        for (var id in questionTimes) {
-            t += questionTimes[id];
-        }
-        t += activeElapsed; // add current unflushed time
-        return t;
+    function fmtTime(sec) {
+        if (sec < 60)   return sec + 's';
+        if (sec < 3600) return Math.floor(sec / 60) + 'm ' + (sec % 60) + 's';
+        return Math.floor(sec / 3600) + 'h ' + Math.floor((sec % 3600) / 60) + 'm';
     }
 
-    function formatTime(sec) {
-        if (sec < 60)  return sec + 's';
-        if (sec < 3600) return Math.floor(sec/60) + 'm ' + (sec%60) + 's';
-        return Math.floor(sec/3600) + 'h ' + Math.floor((sec%3600)/60) + 'm';
-    }
-
-    // ── Flush current question time before leaving ─────────
-    // Adds the elapsed time since currentQStart into questionTimes[qId]
-    // and sends it to the server via track-time
-    function flushCurrentQuestionTime() {
-        var qId   = questionIds[currentIndex];
+    function flushCurrentQTime() {
+        var qId = questionIds[currentIndex];
         if (!qId) return 0;
         var delta = Math.floor((Date.now() - currentQStart) / 1000);
         if (delta > 0) {
             questionTimes[qId] = (questionTimes[qId] || 0) + delta;
-            trackTime(qId, delta); // send incremental delta to server
+            trackTime(qId, delta);
         }
         return delta;
     }
 
-    // ── Navigation ─────────────────────────────────────────
+    // ---- Navigation ----------------------------------------------
     function goToQuestion(idx) {
         if (idx < 0 || idx >= TOTAL_QUESTIONS) return;
+        flushCurrentQTime();
 
-        // Flush time for the question we're leaving
-        flushCurrentQuestionTime();
+        document.querySelectorAll('.question-block').forEach(function (el) { el.classList.add('hidden'); });
 
-        // Hide all questions
-        document.querySelectorAll('.question-block').forEach(function(el) {
-            el.classList.add('hidden');
-        });
-
-        // Remove active highlight from old nav button
         var oldBtn = document.getElementById('nav-btn-' + questionIds[currentIndex]);
         if (oldBtn) oldBtn.classList.remove('nav-btn-active');
 
-        // Show target question
-        var blocks = document.querySelectorAll('.question-block');
-        blocks[idx].classList.remove('hidden');
-        document.getElementById('question-scroll-area')?.scrollTo({ top: 0, behavior: 'smooth' });
+        document.querySelectorAll('.question-block')[idx].classList.remove('hidden');
+        var sa = document.getElementById('question-scroll-area');
+        if (sa) sa.scrollTo({ top: 0, behavior: 'smooth' });
 
-        // Highlight new nav button
         var newBtn = document.getElementById('nav-btn-' + questionIds[idx]);
         if (newBtn) newBtn.classList.add('nav-btn-active');
 
-        // Reset per-question start time
         currentIndex  = idx;
         currentQStart = Date.now();
-
         updateProgressBar();
     }
 
-    // ── Select option ──────────────────────────────────────
+    // ---- MCQ option select ---------------------------------------
     function selectOption(qId, optId, clicked) {
         var container = document.getElementById('question-' + qId);
-        container.querySelectorAll('[id^="option-label-"]').forEach(function(el) {
+        container.querySelectorAll('[id^="option-label-"]').forEach(function (el) {
             el.classList.remove('option-selected');
             el.classList.add('border-gray-200');
         });
@@ -439,102 +481,142 @@
         saveAnswer(qId, optId, undefined);
     }
 
+    // ---- Clear answer (both types) --------------------------------
     function clearAnswer(qId) {
         var container = document.getElementById('question-' + qId);
-        container.querySelectorAll('[id^="option-label-"]').forEach(function(el) {
-            el.classList.remove('option-selected');
-            el.classList.add('border-gray-200');
-        });
-        container.querySelectorAll('input[type=radio]').forEach(function(r) { r.checked = false; });
+        var qType     = container.dataset.questionType || 'mcq';
+
+        if (qType === 'subjective') {
+            var ta = document.getElementById('text-answer-' + qId);
+            if (ta) { ta.value = ''; ta.classList.remove('answered'); }
+            saveTextAnswer(qId, '');
+        } else {
+            container.querySelectorAll('[id^="option-label-"]').forEach(function (el) {
+                el.classList.remove('option-selected'); el.classList.add('border-gray-200');
+            });
+            container.querySelectorAll('input[type=radio]').forEach(function (r) { r.checked = false; });
+            saveAnswer(qId, null, undefined);
+        }
         updateNavBtn(qId, 'unanswered');
-        saveAnswer(qId, null, undefined);
     }
 
+    // ---- Toggle review -------------------------------------------
     function toggleReview(qId, lbl) {
-        setTimeout(function() {
-            var cb = document.getElementById('review-' + qId);
+        setTimeout(function () {
+            var cb        = document.getElementById('review-' + qId);
             var isChecked = cb.checked;
             var container = document.getElementById('question-' + qId);
-            var hasAnswer = !!container.querySelector('input[type=radio]:checked');
+            var qType     = container.dataset.questionType || 'mcq';
+            var hasAnswer = false;
+
+            if (qType === 'subjective') {
+                var ta = document.getElementById('text-answer-' + qId);
+                hasAnswer = ta && ta.value.trim().length > 0;
+            } else {
+                hasAnswer = !!container.querySelector('input[type=radio]:checked');
+            }
             updateNavBtn(qId, isChecked ? 'review' : (hasAnswer ? 'answered' : 'unanswered'));
             saveAnswer(qId, undefined, isChecked);
         }, 10);
     }
 
-    // ── AJAX ───────────────────────────────────────────────
-    function saveAnswer(qId, optId, isReview) {
-        var body = { question_id: qId };
-        if (optId    !== undefined) body.option_id             = optId;
-        if (isReview !== undefined) body.is_marked_for_review  = isReview;
-        fetch(URL_SAVE, {
-            method: 'POST',
-            headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN':CSRF_TOKEN, 'Accept':'application/json' },
-            body: JSON.stringify(body)
-        }).catch(function(){});
+    // ---- Subjective text answer ----------------------------------
+    function handleTextAnswer(qId, text) {
+        var ta = document.getElementById('text-answer-' + qId);
+        if (ta) {
+            if (text.trim().length > 0) {
+                ta.classList.add('answered');
+                updateNavBtn(qId, 'answered');
+            } else {
+                ta.classList.remove('answered');
+                updateNavBtn(qId, 'unanswered');
+            }
+        }
+        clearTimeout(textDebounce[qId]);
+        textDebounce[qId] = setTimeout(function () {
+            saveTextAnswer(qId, text);
+        }, 800);
     }
 
-    // Sends incremental time delta to server
+    function saveTextAnswer(qId, text) {
+        fetch(URL_SAVE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
+            body: JSON.stringify({ question_id: qId, text_answer: text })
+        }).catch(function () {});
+    }
+
+    // ---- AJAX save MCQ -------------------------------------------
+    function saveAnswer(qId, optId, isReview) {
+        var body = { question_id: qId };
+        if (optId    !== undefined) body.option_id            = optId;
+        if (isReview !== undefined) body.is_marked_for_review = isReview;
+        fetch(URL_SAVE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
+            body: JSON.stringify(body)
+        }).catch(function () {});
+    }
+
+    // ---- Track time ----------------------------------------------
     function trackTime(qId, delta) {
         if (delta <= 0) return;
         fetch(URL_TRACK, {
             method: 'POST',
-            headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN':CSRF_TOKEN, 'Accept':'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
             body: JSON.stringify({ question_id: qId, time_spent: delta })
-        }).catch(function(){});
+        }).catch(function () {});
     }
 
-    // Periodic sync: every 30s flush current question's accumulated time
-    setInterval(function() {
-        var qId   = questionIds[currentIndex];
+    setInterval(function () {
+        var qId = questionIds[currentIndex];
         if (!qId) return;
         var delta = Math.floor((Date.now() - currentQStart) / 1000);
         if (delta > 0) {
             questionTimes[qId] = (questionTimes[qId] || 0) + delta;
             trackTime(qId, delta);
-            currentQStart = Date.now(); // reset start so we don't double-count
+            currentQStart = Date.now();
         }
     }, 30000);
 
     function startStatusPoll() {
-        setInterval(function() {
-            fetch(URL_STATUS, { headers: { 'Accept':'application/json' } })
-            .then(function(r){ return r.json(); })
-            .then(function(d){ if (d.time_expired) { clearInterval(timerInterval); window.location.href = d.redirect_url; } })
-            .catch(function(){});
+        setInterval(function () {
+            fetch(URL_STATUS, { headers: { 'Accept': 'application/json' } })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d.time_expired) { clearInterval(timerInterval); window.location.href = d.redirect_url; }
+                }).catch(function () {});
         }, 30000);
     }
 
-    // ── Submit ─────────────────────────────────────────────
+    // ---- Submit --------------------------------------------------
     function confirmSubmit() {
         updateSummary();
         var answered   = parseInt(document.getElementById('summary-answered').textContent)   || 0;
         var unanswered = parseInt(document.getElementById('summary-unanswered').textContent) || 0;
         var review     = parseInt(document.getElementById('summary-review').textContent)     || 0;
-        var msg = 'Submit the exam?\n\n✅ Answered: '   + answered +
-                  '\n⬜ Unanswered: ' + unanswered +
-                  '\n⭐ For Review: ' + review;
-        if (confirm(msg)) doSubmit();
+        if (confirm('Submit the exam?\n\nAnswered: ' + answered + '\nUnanswered: ' + unanswered + '\nFor Review: ' + review)) {
+            doSubmit();
+        }
     }
 
     function autoSubmit() { alert('Time is up! Submitting your exam now.'); doSubmit(); }
 
     function doSubmit() {
         clearInterval(timerInterval);
-        // Final flush before submit
-        flushCurrentQuestionTime();
+        flushCurrentQTime();
         fetch(URL_SUBMIT, {
             method: 'POST',
-            headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN':CSRF_TOKEN, 'Accept':'application/json' }
-        }).then(function(r){ return r.json(); })
-          .then(function(d){ if (d.success) window.location.href = d.redirect_url; else alert(d.message || 'Submission failed.'); })
-          .catch(function(){ alert('Network error. Please try again.'); });
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' }
+        }).then(function (r) { return r.json(); })
+          .then(function (d) { if (d.success) window.location.href = d.redirect_url; else alert(d.message || 'Submission failed.'); })
+          .catch(function () { alert('Network error. Please try again.'); });
     }
 
-    // ── UI Helpers ─────────────────────────────────────────
+    // ---- UI helpers ----------------------------------------------
     function updateNavBtn(qId, state) {
         var btn = document.getElementById('nav-btn-' + qId);
         if (!btn) return;
-        // Preserve active outline, only change color classes
         var isActive = btn.classList.contains('nav-btn-active');
         btn.className = 'h-10 w-full text-xs font-bold rounded-lg border-2 transition flex flex-col items-center justify-center leading-none ';
         if      (state === 'review')   btn.className += 'bg-yellow-100 border-yellow-400 text-yellow-800';
@@ -547,7 +629,7 @@
     function updateSummary() {
         var allBtns = document.querySelectorAll('[id^="nav-btn-"]');
         var ans = 0, rev = 0;
-        allBtns.forEach(function(b) {
+        allBtns.forEach(function (b) {
             if (b.classList.contains('bg-green-100'))  ans++;
             if (b.classList.contains('bg-yellow-100')) rev++;
         });
@@ -557,14 +639,11 @@
     }
 
     function updateProgressBar() {
-        var pct = ((currentIndex + 1) / TOTAL_QUESTIONS) * 100;
-        document.getElementById('progress-bar').style.width = pct + '%';
+        document.getElementById('progress-bar').style.width = ((currentIndex + 1) / TOTAL_QUESTIONS * 100) + '%';
     }
 
-    // ── Guard against accidental navigation ───────────────
-    window.addEventListener('beforeunload', function(e) {
-        // Flush on tab close / refresh
-        flushCurrentQuestionTime();
+    window.addEventListener('beforeunload', function (e) {
+        flushCurrentQTime();
         e.preventDefault();
         e.returnValue = 'Your exam is in progress. Leave?';
     });

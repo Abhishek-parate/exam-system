@@ -13,6 +13,7 @@ class ExamAnswer extends Model
         'attempt_id',
         'question_id',
         'selected_option_id',
+        'text_answer',          // ← NEW: for subjective questions
         'is_marked_for_review',
         'time_spent_seconds',
         'visit_count',
@@ -26,11 +27,9 @@ class ExamAnswer extends Model
         'last_answered_at'     => 'datetime',
     ];
 
-    // ── Relationships ──────────────────────────────────────────
-
     public function attempt()
     {
-        return $this->belongsTo(ExamAttempt::class, 'attempt_id');
+        return $this->belongsTo(ExamAttempt::class);
     }
 
     public function question()
@@ -43,32 +42,27 @@ class ExamAnswer extends Model
         return $this->belongsTo(QuestionOption::class, 'selected_option_id');
     }
 
-    // ── Helper Methods ─────────────────────────────────────────
-
     /**
-     * Did the student actually pick an option?
-     */
-    public function isAttempted(): bool
-    {
-        return !is_null($this->selected_option_id);
-    }
-
-    /**
-     * Did the student pick the CORRECT option?
+     * Check if this answer is correct.
+     * Works for both MCQ and Subjective question types.
      */
     public function isCorrect(): bool
     {
-        if (!$this->isAttempted()) {
-            return false;
+        $question = $this->question;
+
+        if (! $question) return false;
+
+        if (($question->question_type ?? 'mcq') === 'subjective') {
+            // Case-insensitive, trim-safe comparison
+            if (! $this->text_answer || ! $question->correct_answer) return false;
+            return strtolower(trim($this->text_answer)) === strtolower(trim($question->correct_answer));
         }
 
-        // Use loaded relation if available (avoid extra query)
-        if ($this->relationLoaded('selectedOption') && $this->selectedOption) {
-            return (bool) $this->selectedOption->is_correct;
-        }
-
-        return QuestionOption::where('id', $this->selected_option_id)
-                             ->where('is_correct', true)
-                             ->exists();
+        // MCQ
+        if (! $this->selected_option_id) return false;
+        return $question->options()
+                        ->where('id', $this->selected_option_id)
+                        ->where('is_correct', true)
+                        ->exists();
     }
 }

@@ -11,25 +11,27 @@ class Question extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-     'exam_category_id',
-    'subject_id',
-    'chapter_id',   // ✅ must be here
-    'topic_id',     // ✅ must be here
-    'difficulty_id',
-    'question_text',
-    'question_image',
-    'marks',
-    'negative_marks',
-    'explanation',
-    'explanation_image',
-    'is_active',
-    'created_by',
+        'exam_category_id',
+        'subject_id',
+        'chapter_id',
+        'topic_id',
+        'difficulty_id',
+        'question_text',
+        'question_image',
+        'marks',
+        'negative_marks',
+        'explanation',
+        'explanation_image',
+        'is_active',
+        'created_by',
+        'question_type',   // NEW: 'mcq' or 'subjective'
+        'correct_answer',  // NEW: stores correct answer for subjective questions
     ];
 
     protected $casts = [
-        'marks' => 'decimal:2',
+        'marks'          => 'decimal:2',
         'negative_marks' => 'decimal:2',
-        'is_active' => 'boolean',
+        'is_active'      => 'boolean',
     ];
 
     public function examCategory()
