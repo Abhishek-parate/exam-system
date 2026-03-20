@@ -85,6 +85,10 @@ class ExamController extends Controller
 
         $validated = $request->validate($rules);
 
+        // Convert empty datetime/string fields to null (MySQL rejects '' for datetime columns)
+        $validated['result_release_time'] = !empty($validated['result_release_time']) ? $validated['result_release_time'] : null;
+        $validated['description']         = !empty($validated['description'])         ? $validated['description']         : null;
+
         $validated['exam_code']                = 'EXM-' . strtoupper(Str::random(8));
         $validated['created_by']               = auth()->id();
         $validated['total_questions']          = 0;
@@ -234,6 +238,9 @@ class ExamController extends Controller
 
         $validated = $request->validate($rules);
 
+        // Convert empty datetime/string fields to null
+        $validated['result_release_time'] = !empty($validated['result_release_time']) ? $validated['result_release_time'] : null;
+        $validated['description']         = !empty($validated['description'])         ? $validated['description']         : null;
         $validated['randomize_questions']      = $request->has('randomize_questions')      ? 1 : 0;
         $validated['randomize_options']        = $request->has('randomize_options')        ? 1 : 0;
         $validated['show_results_immediately'] = $request->has('show_results_immediately') ? 1 : 0;
