@@ -7,7 +7,7 @@
     <title>@yield('title', 'Parent Portal - Exam System')</title>
     
     <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
     <script>
         tailwind.config = {
             theme: {

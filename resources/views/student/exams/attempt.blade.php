@@ -647,6 +647,28 @@
         e.preventDefault();
         e.returnValue = 'Your exam is in progress. Leave?';
     });
+
+    function sendCheatLog(type, count) {
+    fetch("{{ url('student/exams/' . $attempt->attempt_token . '/cheat-log') }}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": CSRF_TOKEN
+        },
+        body: JSON.stringify({
+            type: type,
+            count: count
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.force_submit) {
+            alert(data.message || "Exam auto-submitted due to cheating.");
+            doSubmit();
+        }
+    })
+    .catch(()=>{});
+}
 </script>
 
 @endsection

@@ -27,6 +27,7 @@ Route::post('/logout',[LoginController::class, 'logout'])->name('logout');
 | Admin Routes
 |--------------------------------------------------------------------------
 */
+Route::post('/student/exams/{token}/cheat-log', [ExamAttemptController::class, 'cheatLog']);
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->group(function () {
 
     Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard');

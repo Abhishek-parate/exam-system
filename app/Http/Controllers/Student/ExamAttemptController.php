@@ -197,6 +197,63 @@ class ExamAttemptController extends Controller
     }
 
     // -------------------------------------------------------
+// 🚨 CHEAT LOG (ANTI-CHEAT)
+// -------------------------------------------------------
+    public function cheatLog(Request $request, $attemptToken)
+    {
+        $attempt = ExamAttempt::where('attempt_token', $attemptToken)->firstOrFail();
+
+        if ($attempt->student_id !== auth()->user()->student->id || $attempt->isSubmitted()) {
+            return response()->json(['success' => false], 403);
+        }
+
+        $request->validate([
+            'type'  => 'required|string|in:tab_switch,fullscreen_exit,copy',
+            'count' => 'nullable|integer|min:0'
+        ]);
+
+        try {
+            switch ($request->type) {
+
+                case 'tab_switch':
+                    $attempt->tab_switch_count = $request->count ?? ($attempt->tab_switch_count + 1);
+                    break;
+
+                case 'fullscreen_exit':
+                    $attempt->fullscreen_exit_count = $request->count ?? ($attempt->fullscreen_exit_count + 1);
+                    break;
+
+                case 'copy':
+                    $attempt->copy_attempts = $attempt->copy_attempts + 1;
+                    break;
+            }
+
+            $attempt->save();
+
+            // 🔥 SERVER SIDE AUTO-SUBMIT (IMPORTANT SECURITY)
+            if (
+                $attempt->tab_switch_count > 1 ||
+                $attempt->fullscreen_exit_count > 1 ||
+                $attempt->copy_attempts > 0
+            ) {
+                $this->autoSubmit($attempt);
+
+                return response()->json([
+                    'success' => true,
+                    'force_submit' => true,
+                    'message' => 'Cheating detected. Exam auto-submitted.'
+                ]);
+            }
+
+            return response()->json(['success' => true]);
+
+        } catch (\Exception $e) {
+            Log::error('Cheat log failed: ' . $e->getMessage());
+            return response()->json(['success' => false], 500);
+        }
+    }
+
+    // -------------------------------------------------------
     // AJAX — Track time
     // -------------------------------------------------------
     public function trackTime(Request $request, $attemptToken)
