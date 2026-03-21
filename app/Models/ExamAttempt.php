@@ -21,12 +21,25 @@ class ExamAttempt extends Model
         'status',
         'ip_address',
         'user_agent',
+        // ✅ FIX: cheat-tracking columns added to fillable
+        'tab_switch_count',
+        'fullscreen_exit_count',
+        'copy_attempts',
     ];
 
     protected $casts = [
-        'started_at'        => 'datetime',
-        'submitted_at'      => 'datetime',
-        'auto_submitted_at' => 'datetime',
+        'started_at'            => 'datetime',
+        'submitted_at'          => 'datetime',
+        'auto_submitted_at'     => 'datetime',
+        // ✅ FIX: cast IDs to integer so strict !== comparisons work correctly
+        //    PDO can return integer columns as strings; explicit cast prevents
+        //    the false 403 on the attempt page.
+        'exam_id'               => 'integer',
+        'student_id'            => 'integer',
+        'time_taken_seconds'    => 'integer',
+        'tab_switch_count'      => 'integer',
+        'fullscreen_exit_count' => 'integer',
+        'copy_attempts'         => 'integer',
     ];
 
     protected static function boot()
@@ -35,6 +48,11 @@ class ExamAttempt extends Model
 
         static::creating(function ($attempt) {
             $attempt->attempt_token = Str::uuid();
+
+            // ✅ Ensure cheat counters start at 0, not null
+            $attempt->tab_switch_count      = $attempt->tab_switch_count      ?? 0;
+            $attempt->fullscreen_exit_count = $attempt->fullscreen_exit_count ?? 0;
+            $attempt->copy_attempts         = $attempt->copy_attempts         ?? 0;
         });
     }
 

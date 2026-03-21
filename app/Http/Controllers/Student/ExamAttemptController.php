@@ -124,7 +124,11 @@ class ExamAttemptController extends Controller
                               ->with(['exam.questions.options', 'answers'])
                               ->firstOrFail();
 
-        if ($attempt->student_id !== auth()->user()->student->id) abort(403);
+        // ✅ FIX: cast both sides to int — DB returns student_id as string,
+        //    strict !== would always be true causing a false 403.
+        if ((int) $attempt->student_id !== (int) auth()->user()->student->id) {
+            abort(403);
+        }
 
         if ($attempt->isSubmitted()) {
             return redirect()->route('student.exams.index')->with('info', 'Exam already submitted.');
@@ -148,7 +152,8 @@ class ExamAttemptController extends Controller
     {
         $attempt = ExamAttempt::where('attempt_token', $attemptToken)->firstOrFail();
 
-        if ($attempt->student_id !== auth()->user()->student->id || $attempt->isSubmitted()) {
+        // ✅ FIX: cast to int for safe comparison
+        if ((int) $attempt->student_id !== (int) auth()->user()->student->id || $attempt->isSubmitted()) {
             return response()->json(['success' => false, 'message' => 'Invalid attempt.'], 403);
         }
 
@@ -197,13 +202,14 @@ class ExamAttemptController extends Controller
     }
 
     // -------------------------------------------------------
-// 🚨 CHEAT LOG (ANTI-CHEAT)
-// -------------------------------------------------------
+    // AJAX — Cheat log (anti-cheat)
+    // -------------------------------------------------------
     public function cheatLog(Request $request, $attemptToken)
     {
         $attempt = ExamAttempt::where('attempt_token', $attemptToken)->firstOrFail();
 
-        if ($attempt->student_id !== auth()->user()->student->id || $attempt->isSubmitted()) {
+        // ✅ FIX: cast to int for safe comparison
+        if ((int) $attempt->student_id !== (int) auth()->user()->student->id || $attempt->isSubmitted()) {
             return response()->json(['success' => false], 403);
         }
 
@@ -230,7 +236,7 @@ class ExamAttemptController extends Controller
 
             $attempt->save();
 
-            // 🔥 SERVER SIDE AUTO-SUBMIT (IMPORTANT SECURITY)
+            // 🔥 Server-side auto-submit on cheat detection
             if (
                 $attempt->tab_switch_count > 1 ||
                 $attempt->fullscreen_exit_count > 1 ||
@@ -239,9 +245,9 @@ class ExamAttemptController extends Controller
                 $this->autoSubmit($attempt);
 
                 return response()->json([
-                    'success' => true,
+                    'success'      => true,
                     'force_submit' => true,
-                    'message' => 'Cheating detected. Exam auto-submitted.'
+                    'message'      => 'Cheating detected. Exam auto-submitted.'
                 ]);
             }
 
@@ -260,7 +266,8 @@ class ExamAttemptController extends Controller
     {
         $attempt = ExamAttempt::where('attempt_token', $attemptToken)->firstOrFail();
 
-        if ($attempt->student_id !== auth()->user()->student->id || $attempt->isSubmitted()) {
+        // ✅ FIX: cast to int for safe comparison
+        if ((int) $attempt->student_id !== (int) auth()->user()->student->id || $attempt->isSubmitted()) {
             return response()->json(['success' => false], 403);
         }
 
@@ -300,7 +307,8 @@ class ExamAttemptController extends Controller
     {
         $attempt = ExamAttempt::where('attempt_token', $attemptToken)->firstOrFail();
 
-        if ($attempt->student_id !== auth()->user()->student->id) {
+        // ✅ FIX: cast to int for safe comparison
+        if ((int) $attempt->student_id !== (int) auth()->user()->student->id) {
             return response()->json(['success' => false], 403);
         }
 
@@ -329,7 +337,8 @@ class ExamAttemptController extends Controller
     {
         $attempt = ExamAttempt::where('attempt_token', $attemptToken)->firstOrFail();
 
-        if ($attempt->student_id !== auth()->user()->student->id || $attempt->isSubmitted()) {
+        // ✅ FIX: cast to int for safe comparison
+        if ((int) $attempt->student_id !== (int) auth()->user()->student->id || $attempt->isSubmitted()) {
             return response()->json(['success' => false, 'message' => 'Invalid attempt.'], 403);
         }
 

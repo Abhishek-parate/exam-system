@@ -9,15 +9,11 @@ use Illuminate\Http\Request;
 
 class SubjectController extends Controller
 {
-    /**
-     * Display subjects list
-     */
     public function index(Request $request)
     {
         $query = Subject::with('examCategory')
-                        ->withCount('questions'); // ✅ FIX (important)
+            ->withCount(['questions', 'chapters']);
 
-        // Filters
         if ($request->filled('exam_category_id')) {
             $query->where('exam_category_id', $request->exam_category_id);
         }
@@ -27,41 +23,36 @@ class SubjectController extends Controller
         }
 
         if ($request->filled('status')) {
-            $query->where('is_active', $request->status === 'active');
+            $isActive = $request->status === 'active' ? 1 : 0;
+            $query->where('is_active', $isActive);
         }
 
-        $subjects = $query->latest()->paginate(20);
+        $subjects      = $query->orderBy('id', 'desc')->paginate(20)->withQueryString();
         $examCategories = ExamCategory::where('is_active', true)->get();
 
         return view('admin.subjects.index', compact('subjects', 'examCategories'));
     }
 
-    /**
-     * Show create form
-     */
     public function create()
     {
         $examCategories = ExamCategory::where('is_active', true)->get();
         return view('admin.subjects.create', compact('examCategories'));
     }
 
-    /**
-     * Store subject
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([
             'exam_category_id' => 'nullable|exists:exam_categories,id',
-            'name' => 'required|string|max:255',
-            'code' => 'nullable|string|max:50|unique:subjects,code',
-            'description' => 'nullable|string',
-            'is_active' => 'boolean',
+            'name'             => 'required|string|max:255',
+            'code'             => 'nullable|string|max:50|unique:subjects,code',
+            'description'      => 'nullable|string',
+            'is_active'        => 'boolean',
         ]);
 
         $validated['exam_category_id'] = $validated['exam_category_id'] ?? null;
-        $validated['code'] = $validated['code'] ?? null;
-        $validated['description'] = $validated['description'] ?? null;
-        $validated['is_active'] = $request->has('is_active');
+        $validated['code']             = $validated['code'] ?? null;
+        $validated['description']      = $validated['description'] ?? null;
+        $validated['is_active']        = $request->has('is_active') ? 1 : 0;
 
         Subject::create($validated);
 
@@ -69,48 +60,39 @@ class SubjectController extends Controller
             ->with('success', 'Subject created successfully!');
     }
 
-    /**
-     * Show subject
-     */
     public function show(Subject $subject)
     {
         $subject->load(['examCategory', 'chapters', 'questions']);
 
         $stats = [
-            'total_questions' => $subject->questions()->count(),
-            'active_questions' => $subject->questions()->where('is_active', true)->count(),
-            'total_chapters' => $subject->chapters()->count(),
+            'total_questions'  => $subject->questions->count(),
+            'active_questions' => $subject->questions->where('is_active', true)->count(),
+            'total_chapters'   => $subject->chapters->count(),
         ];
 
         return view('admin.subjects.show', compact('subject', 'stats'));
     }
 
-    /**
-     * Edit form
-     */
     public function edit(Subject $subject)
     {
         $examCategories = ExamCategory::where('is_active', true)->get();
         return view('admin.subjects.edit', compact('subject', 'examCategories'));
     }
 
-    /**
-     * Update subject
-     */
     public function update(Request $request, Subject $subject)
     {
         $validated = $request->validate([
             'exam_category_id' => 'nullable|exists:exam_categories,id',
-            'name' => 'required|string|max:255',
-            'code' => 'nullable|string|max:50|unique:subjects,code,' . $subject->id,
-            'description' => 'nullable|string',
-            'is_active' => 'boolean',
+            'name'             => 'required|string|max:255',
+            'code'             => 'nullable|string|max:50|unique:subjects,code,' . $subject->id,
+            'description'      => 'nullable|string',
+            'is_active'        => 'boolean',
         ]);
 
         $validated['exam_category_id'] = $validated['exam_category_id'] ?? null;
-        $validated['code'] = $validated['code'] ?? null;
-        $validated['description'] = $validated['description'] ?? null;
-        $validated['is_active'] = $request->has('is_active');
+        $validated['code']             = $validated['code'] ?? null;
+        $validated['description']      = $validated['description'] ?? null;
+        $validated['is_active']        = $request->has('is_active') ? 1 : 0;
 
         $subject->update($validated);
 
@@ -118,9 +100,6 @@ class SubjectController extends Controller
             ->with('success', 'Subject updated successfully!');
     }
 
-    /**
-     * Delete subject
-     */
     public function destroy(Subject $subject)
     {
         try {

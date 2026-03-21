@@ -13,11 +13,15 @@ class RouteServiceProvider extends ServiceProvider
     /**
      * The path to your application's "home" route.
      *
-     * Typically, users are redirected here after authentication.
+     * ✅ FIX: Was '/home' which doesn't exist — caused an infinite redirect
+     * loop. RedirectIfAuthenticated (middleware/guest) was bouncing every
+     * authenticated user to /home → 404/redirect → back to /login → loop.
+     * Using '/login' as a safe fallback; the real role-based redirect is
+     * handled in RedirectIfAuthenticated and LoginController.
      *
      * @var string
      */
-    public const HOME = '/home';
+    public const HOME = '/login';
 
     /**
      * Define your route model bindings, pattern filters, and other route configuration.

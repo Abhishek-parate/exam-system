@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\User;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -37,7 +38,7 @@ class UserController extends Controller
         }
 
         $roles = Role::all();
-        $users = $query->latest()->paginate(20);
+        $users = $query->latest()->paginate(20)->withQueryString();
 
         return view('admin.users.index', compact('users', 'roles'));
     }
@@ -53,6 +54,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name'      => ['required', 'string', 'max:255'],
             'email'     => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            'mobile'    => ['nullable', 'string', 'max:15'],
             'password'  => ['required', 'confirmed', Rules\Password::defaults()],
             'role_name' => ['required', 'exists:roles,name'],
             'is_active' => ['nullable', 'boolean'],
@@ -60,33 +62,36 @@ class UserController extends Controller
 
         $role = Role::where('name', $validated['role_name'])->firstOrFail();
 
-        // Wrap in a transaction so user + profile are always created together
         DB::transaction(function () use ($validated, $request, $role) {
             $user = User::create([
                 'name'      => $validated['name'],
                 'email'     => $validated['email'],
+                'mobile'    => $validated['mobile'] ?? null,
                 'password'  => Hash::make($validated['password']),
                 'role_id'   => $role->id,
                 'is_active' => $request->has('is_active') ? 1 : 0,
             ]);
 
-            // Auto-create the linked profile based on role
             if ($role->name === 'student') {
                 Student::create([
                     'user_id'           => $user->id,
                     'enrollment_number' => 'STU-' . str_pad($user->id, 5, '0', STR_PAD_LEFT),
-                    // Other nullable fields (class, dob, address, target_exam)
-                    // will be filled later from the student's profile edit page
+                    'class'             => $request->class ?? null,
+                    'date_of_birth'     => $request->date_of_birth ?? null,
+                    'address'           => $request->address ?? null,
+                    'target_exam'       => $request->target_exam ?? null,
                 ]);
             } elseif ($role->name === 'teacher') {
                 Teacher::create([
-                    'user_id' => $user->id,
+                    'user_id'       => $user->id,
+                    'employee_code' => 'TCH-' . str_pad($user->id, 5, '0', STR_PAD_LEFT),
+                    'qualification' => $request->qualification ?? null,
                 ]);
             }
         });
 
         return redirect()->route('admin.users.index')
-                         ->with('success', 'User created successfully!');
+            ->with('success', 'User created successfully!');
     }
 
     public function show(User $user)
@@ -98,7 +103,7 @@ class UserController extends Controller
     public function edit(User $user)
     {
         $roles = Role::all();
-        $user->load('role');
+        $user->load('role', 'student', 'teacher');
         return view('admin.users.edit', compact('user', 'roles'));
     }
 
@@ -107,6 +112,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name'      => ['required', 'string', 'max:255'],
             'email'     => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
+            'mobile'    => ['nullable', 'string', 'max:15'],
             'password'  => ['nullable', 'confirmed', Rules\Password::defaults()],
             'role_name' => ['required', 'exists:roles,name'],
             'is_active' => ['nullable', 'boolean'],
@@ -118,6 +124,7 @@ class UserController extends Controller
             $updateData = [
                 'name'      => $validated['name'],
                 'email'     => $validated['email'],
+                'mobile'    => $validated['mobile'] ?? null,
                 'role_id'   => $role->id,
                 'is_active' => $request->has('is_active') ? 1 : 0,
             ];
@@ -128,24 +135,23 @@ class UserController extends Controller
 
             $user->update($updateData);
 
-            // If role changed to student and no student profile exists yet, create one
-            if ($role->name === 'student' && ! $user->student) {
+            if ($role->name === 'student' && !$user->student) {
                 Student::create([
                     'user_id'           => $user->id,
                     'enrollment_number' => 'STU-' . str_pad($user->id, 5, '0', STR_PAD_LEFT),
                 ]);
             }
 
-            // If role changed to teacher and no teacher profile exists yet, create one
-            if ($role->name === 'teacher' && ! $user->teacher) {
+            if ($role->name === 'teacher' && !$user->teacher) {
                 Teacher::create([
-                    'user_id' => $user->id,
+                    'user_id'       => $user->id,
+                    'employee_code' => 'TCH-' . str_pad($user->id, 5, '0', STR_PAD_LEFT),
                 ]);
             }
         });
 
         return redirect()->route('admin.users.index')
-                         ->with('success', 'User updated successfully!');
+            ->with('success', 'User updated successfully!');
     }
 
     public function destroy(User $user)
@@ -157,6 +163,6 @@ class UserController extends Controller
         $user->delete();
 
         return redirect()->route('admin.users.index')
-                         ->with('success', 'User deleted successfully!');
+            ->with('success', 'User deleted successfully!');
     }
 }

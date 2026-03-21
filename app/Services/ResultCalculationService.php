@@ -12,7 +12,7 @@ class ResultCalculationService
 {
     public function calculate(ExamAttempt $attempt): ExamResult
     {
-        // If a result already exists for this attempt, return it (idempotent)
+        // Idempotent — return existing result if already calculated
         $existing = ExamResult::where('attempt_id', $attempt->id)->first();
         if ($existing) {
             return $existing;
@@ -20,9 +20,17 @@ class ResultCalculationService
 
         DB::beginTransaction();
         try {
-            $exam    = $attempt->exam;
+            // ✅ FIX: Eager-load everything needed so no lazy-load queries
+            //    fire inside the loop (prevents N+1 and stale-transaction issues).
+            //    Added 'question.options' so isCorrect() uses the collection,
+            //    not a new SQL query inside the transaction.
+            $exam    = $attempt->exam()->with(['markingSchemes', 'questions'])->first();
             $answers = $attempt->answers()
-                               ->with(['question.subject', 'question.options', 'selectedOption'])
+                               ->with([
+                                   'question.subject',
+                                   'question.options', // ✅ needed for isCorrect()
+                                   'selectedOption',
+                               ])
                                ->get();
 
             $correctCount         = 0;
@@ -30,22 +38,19 @@ class ResultCalculationService
             $unattemptedCount     = 0;
             $markedForReviewCount = 0;
             $obtainedMarks        = 0.0;
-
-            $subjectWiseData = [];
+            $subjectWiseData      = [];
 
             foreach ($answers as $answer) {
                 $question = $answer->question;
 
-                // ✅ FIX 1: Guard against orphaned answer (question deleted after attempt started)
+                // Guard: question deleted after attempt started
                 if (! $question) {
                     Log::warning("ResultCalc: answer {$answer->id} has no question — skipped.");
                     continue;
                 }
 
-                $subject = $question->subject;
-
-                // ✅ FIX 2: Guard against question with no subject
-                $subjectId   = $subject?->id   ?? 0;   // 0 = "uncategorised"
+                $subject     = $question->subject;
+                $subjectId   = $subject?->id   ?? 0;
                 $subjectName = $subject?->name ?? 'Uncategorised';
 
                 // Initialise subject bucket
@@ -64,20 +69,19 @@ class ResultCalculationService
                 $subjectWiseData[$subjectId]['total_questions']++;
                 $subjectWiseData[$subjectId]['total_time'] += (int) $answer->time_spent_seconds;
 
-                // ✅ FIX 3: Correct property name  (was $answer->isMarked_for_review)
                 if ($answer->is_marked_for_review) {
                     $markedForReviewCount++;
                 }
 
-                // Try to get marking scheme for this subject; fall back to question's own marks
+                // Marking scheme: per-subject → fallback to question's own marks → fallback to 1/0
                 $markingScheme = $subjectId
-                    ? $exam->markingSchemes()->where('subject_id', $subjectId)->first()
+                    ? $exam->markingSchemes->where('subject_id', $subjectId)->first()
                     : null;
 
-                // ✅ FIX 4: Fallback marks when no marking scheme exists
-                $correctMarks  = $markingScheme?->correct_marks  ?? (float) ($question->marks          ?? 1);
-                $negativeMarks = $markingScheme?->wrong_marks     ?? (float) ($question->negative_marks ?? 0);
+                $correctMarks  = (float) ($markingScheme?->correct_marks  ?? $question->marks          ?? 1);
+                $negativeMarks = (float) ($markingScheme?->wrong_marks     ?? $question->negative_marks ?? 0);
 
+                // ✅ PRIMARY BUG FIX: isAttempted() now exists on ExamAnswer model
                 if ($answer->isAttempted()) {
                     if ($answer->isCorrect()) {
                         $correctCount++;
@@ -96,79 +100,81 @@ class ResultCalculationService
                 }
             }
 
-            $totalQuestions    = $correctCount + $wrongCount + $unattemptedCount;
-            $accuracyPct       = $totalQuestions > 0
-                                 ? ($correctCount / $totalQuestions) * 100
-                                 : 0.0;
+            $totalQuestions = $correctCount + $wrongCount + $unattemptedCount;
+            $accuracyPct    = $totalQuestions > 0
+                              ? ($correctCount / $totalQuestions) * 100
+                              : 0.0;
 
-            // Create main result record
+            // ✅ FIX: Guard against missing show_results_immediately column —
+            //    use null-coalescing so it degrades to false, not a fatal error.
+            $showImmediately = (bool) ($exam->show_results_immediately ?? false);
+
             $result = ExamResult::create([
                 'attempt_id'          => $attempt->id,
                 'exam_id'             => $exam->id,
                 'student_id'          => $attempt->student_id,
-                'total_marks'         => (float) $exam->total_marks,
+                'total_marks'         => (float) ($exam->total_marks ?? 0),
                 'obtained_marks'      => max(0.0, round($obtainedMarks, 2)),
                 'correct_answers'     => $correctCount,
                 'wrong_answers'       => $wrongCount,
                 'unattempted'         => $unattemptedCount,
                 'marked_for_review'   => $markedForReviewCount,
                 'accuracy_percentage' => round($accuracyPct, 2),
-                'is_published'        => (bool) $exam->show_results_immediately,
-                'published_at'        => $exam->show_results_immediately ? now() : null,
+                'is_published'        => $showImmediately,
+                'published_at'        => $showImmediately ? now() : null,
             ]);
 
-            // Create subject-wise result rows
-            // Skip the "uncategorised" bucket (id=0) if you don't want a junk row,
-            // or keep it — up to you.  Here we skip id=0.
+            // Subject-wise breakdown (skip uncategorised bucket id=0)
             foreach ($subjectWiseData as $subjectId => $data) {
                 if ($subjectId === 0) {
-                    continue; // skip questions that had no subject
+                    continue;
                 }
 
                 $subTotal    = $data['total_questions'];
-                $subAccuracy = $subTotal > 0
-                               ? ($data['correct'] / $subTotal) * 100
-                               : 0.0;
-                $avgTime     = $subTotal > 0
-                               ? $data['total_time'] / $subTotal
-                               : 0;
+                $subAccuracy = $subTotal > 0 ? ($data['correct'] / $subTotal) * 100 : 0.0;
+                $avgTime     = $subTotal > 0 ? $data['total_time'] / $subTotal : 0;
 
                 ExamResultSubject::create([
-                    'result_id'                  => $result->id,
-                    'subject_id'                 => $data['subject_id'],
-                    'total_questions'            => $data['total_questions'],
-                    'correct_answers'            => $data['correct'],
-                    'wrong_answers'              => $data['wrong'],
-                    'unattempted'                => $data['unattempted'],
-                    'marks_obtained'             => max(0.0, round($data['marks'], 2)),
-                    'accuracy_percentage'        => round($subAccuracy, 2),
-                    'average_time_per_question'  => round($avgTime),
+                    'result_id'                 => $result->id,
+                    'subject_id'                => $data['subject_id'],
+                    'total_questions'           => $data['total_questions'],
+                    'correct_answers'           => $data['correct'],
+                    'wrong_answers'             => $data['wrong'],
+                    'unattempted'               => $data['unattempted'],
+                    'marks_obtained'            => max(0.0, round($data['marks'], 2)),
+                    'accuracy_percentage'       => round($subAccuracy, 2),
+                    'average_time_per_question' => (int) round($avgTime),
                 ]);
             }
 
-            // Recalculate ranks for everyone in this exam
+            // Recalculate rank for all students in this exam
             $this->calculateRank($result);
 
             DB::commit();
+
+            Log::info("ResultCalc: attempt {$attempt->id} → result {$result->id} | "
+                . "correct={$correctCount} wrong={$wrongCount} unattempted={$unattemptedCount} "
+                . "marks={$result->obtained_marks}/{$result->total_marks}");
 
             return $result;
 
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error("ResultCalculationService failed for attempt {$attempt->id}: " . $e->getMessage(), [
+            Log::error("ResultCalculationService failed for attempt {$attempt->id}: {$e->getMessage()}", [
+                'file'  => $e->getFile(),
+                'line'  => $e->getLine(),
                 'trace' => $e->getTraceAsString(),
             ]);
             throw $e;
         }
     }
 
-    // =========================================================
-    // Recalculate rank for every published/unpublished result in the exam
-    // so rank stays accurate when multiple students submit close together.
-    // =========================================================
+    /**
+     * Recalculate rank for every result in the exam so ranks stay
+     * accurate when multiple students submit close together.
+     */
     private function calculateRank(ExamResult $newResult): void
     {
-        // Grab all results for this exam ordered by obtained_marks DESC
         $allResults = ExamResult::where('exam_id', $newResult->exam_id)
                                 ->orderByDesc('obtained_marks')
                                 ->get();

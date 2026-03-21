@@ -20,10 +20,13 @@ class User extends Authenticatable
 
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'is_active' => 'boolean',
+        'is_active'         => 'boolean',
+        // ✅ Cast role_id to integer for consistent comparisons
+        'role_id'           => 'integer',
     ];
 
-    // Relationships
+    // ── Relationships ──────────────────────────────────────────
+
     public function role()
     {
         return $this->belongsTo(Role::class);
@@ -44,29 +47,47 @@ class User extends Authenticatable
         return $this->hasOne(ParentModel::class);
     }
 
-    // Helper Methods
-    public function isAdmin()
+    // ── Helper Methods ─────────────────────────────────────────
+
+    /**
+     * Get the role name safely.
+     * ✅ FIX: Previously $this->role->name would throw a fatal error if the
+     * role relationship returned null (e.g. role_id is null or the roles
+     * table row is missing). Laravel silently catches the exception during
+     * a request and redirects back to /login — appearing as a login loop
+     * with no visible error message.
+     */
+    private function getRoleName(): ?string
     {
-        return $this->role->name === 'admin';
+        return $this->role?->name;
     }
 
-    public function isTeacher()
+    public function isAdmin(): bool
     {
-        return $this->role->name === 'teacher';
+        return $this->getRoleName() === 'admin';
     }
 
-    public function isStudent()
+    public function isTeacher(): bool
     {
-        return $this->role->name === 'student';
+        return $this->getRoleName() === 'teacher';
     }
 
-    public function isParent()
+    public function isStudent(): bool
     {
-        return $this->role->name === 'parent';
+        return $this->getRoleName() === 'student';
     }
 
-    public function hasPermission($permission)
+    public function isParent(): bool
     {
+        return $this->getRoleName() === 'parent';
+    }
+
+    public function hasPermission($permission): bool
+    {
+        if (! $this->role) {
+            return false;
+        }
+
         return $this->role->permissions()->where('name', $permission)->exists();
     }
 }

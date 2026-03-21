@@ -27,7 +27,6 @@ Route::post('/logout',[LoginController::class, 'logout'])->name('logout');
 | Admin Routes
 |--------------------------------------------------------------------------
 */
-Route::post('/student/exams/{token}/cheat-log', [ExamAttemptController::class, 'cheatLog']);
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->group(function () {
 
     Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard');
@@ -127,6 +126,11 @@ Route::prefix('student')->name('student.')->middleware(['auth', 'role:student'])
     Route::post('exams/{attemptToken}/track-time',  [ExamAttemptController::class, 'trackTime'])->name('exams.track-time');
     Route::get('exams/{attemptToken}/status',       [ExamAttemptController::class, 'getStatus'])->name('exams.status');
     Route::post('exams/{attemptToken}/submit',      [ExamAttemptController::class, 'submit'])->name('exams.submit');
+
+    // ✅ FIX: cheatLog moved INSIDE the student auth+role middleware group.
+    //    Previously it was outside — unauthenticated users could POST to it,
+    //    and it lacked proper auth protection.
+    Route::post('exams/{token}/cheat-log',          [ExamAttemptController::class, 'cheatLog'])->name('exams.cheat-log');
 
     Route::get('results', [StudentDashboard::class, 'results'])->name('results');
     Route::get('profile', [StudentDashboard::class, 'profile'])->name('profile');

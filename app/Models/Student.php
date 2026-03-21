@@ -9,10 +9,12 @@ class Student extends Model
 {
     use HasFactory;
 
+    protected $table = 'students';
+
     protected $fillable = [
         'user_id',
         'enrollment_number',
-        'class',          // string like "10th A" etc.
+        'class',
         'date_of_birth',
         'address',
         'target_exam',
@@ -29,8 +31,12 @@ class Student extends Model
 
     public function parents()
     {
-        return $this->belongsToMany(ParentModel::class, 'parent_student', 'student_id', 'parent_id')
-                    ->withTimestamps();
+        return $this->belongsToMany(
+            ParentModel::class,
+            'parent_student',
+            'student_id',
+            'parent_id'
+        )->withTimestamps();
     }
 
     public function examAttempts()
@@ -46,8 +52,8 @@ class Student extends Model
     public function enrolledExams()
     {
         return $this->belongsToMany(Exam::class, 'exam_students')
-                    ->withPivot('is_enrolled')
-                    ->withTimestamps();
+            ->withPivot('is_enrolled')
+            ->withTimestamps();
     }
 
     public function hasAttemptedExam($examId)
@@ -58,8 +64,8 @@ class Student extends Model
     public function getActiveAttempt($examId)
     {
         return $this->examAttempts()
-                    ->where('exam_id', $examId)
-                    ->where('status', 'in_progress')
-                    ->first();
+            ->where('exam_id', $examId)
+            ->where('status', 'in_progress')
+            ->first();
     }
 }
