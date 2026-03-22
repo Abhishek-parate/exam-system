@@ -2,22 +2,49 @@
 @section('title', 'Edit Topic')
 
 @section('content')
-<div class="container mx-auto px-4 py-8 max-w-2xl">
+<style>
+    .page-header { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1.25rem; }
+    .page-title  { font-size:1.25rem; font-weight:700; color:#111827; margin:0; }
+    .back-link   { display:inline-flex; align-items:center; gap:.25rem; font-size:.875rem; font-weight:500; color:#6b7280; text-decoration:none; background:#f3f4f6; padding:.5rem 1rem; border-radius:.5rem; transition:background .15s; white-space:nowrap; }
+    .back-link:hover { background:#e5e7eb; color:#111827; }
 
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">✏️ Edit Topic</h1>
-        <a href="{{ route('admin.topics.index') }}"
-           class="text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg transition">← Back</a>
+    .form-card  { background:#fff; border-radius:.75rem; box-shadow:0 1px 4px rgba(0,0,0,.08); padding:1.25rem; }
+    .form-group { margin-bottom:1.125rem; }
+    .form-label { display:block; font-size:.875rem; font-weight:600; color:#374151; margin-bottom:.5rem; }
+    .form-ctrl  { width:100%; padding:.625rem .875rem; border:1px solid #d1d5db; border-radius:.5rem; font-size:.875rem; color:#374151; background:#fff; outline:none; box-sizing:border-box; transition:border .15s, box-shadow .15s; }
+    .form-ctrl:focus { border-color:#7c3aed; box-shadow:0 0 0 3px rgba(124,58,237,.1); }
+    .form-error { font-size:.75rem; color:#dc2626; margin-top:.375rem; }
+
+    .check-row  { display:flex; align-items:center; gap:.625rem; cursor:pointer; }
+    .check-row input { width:1.125rem; height:1.125rem; accent-color:#7c3aed; cursor:pointer; }
+
+    .btn-row { display:flex; gap:.75rem; flex-wrap:wrap; padding-top:.375rem; }
+    .btn     { display:inline-flex; align-items:center; gap:.375rem; padding:.625rem 1.5rem; border-radius:.5rem; font-size:.875rem; font-weight:600; cursor:pointer; border:none; text-decoration:none; transition:background .15s; white-space:nowrap; }
+    .btn-purple { background:#7c3aed; color:#fff; box-shadow:0 1px 3px rgba(124,58,237,.3); }
+    .btn-purple:hover { background:#6d28d9; }
+    .btn-gray   { background:#e5e7eb; color:#374151; }
+    .btn-gray:hover { background:#d1d5db; }
+
+    @media (min-width: 768px) {
+        .page-title { font-size:1.5rem; }
+        .form-card  { padding:1.75rem; }
+        .form-group { margin-bottom:1.375rem; }
+    }
+</style>
+
+<div style="max-width:38rem;">
+    <div class="page-header">
+        <h1 class="page-title">✏️ Edit Topic</h1>
+        <a href="{{ route('admin.topics.index') }}" class="back-link">← Back</a>
     </div>
 
-    <div class="bg-white rounded-xl shadow-md p-6">
+    <div class="form-card">
         <form action="{{ route('admin.topics.update', $topic) }}" method="POST">
             @csrf @method('PUT')
 
-            <div class="mb-5">
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Subject <span class="text-red-500">*</span></label>
-                <select id="subject_id"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+            <div class="form-group">
+                <label class="form-label">Subject <span style="color:#dc2626;">*</span></label>
+                <select id="subject_id" class="form-ctrl">
                     <option value="">Select Subject</option>
                     @foreach($subjects as $subject)
                         <option value="{{ $subject->id }}"
@@ -28,43 +55,37 @@
                 </select>
             </div>
 
-            <div class="mb-5">
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Chapter <span class="text-red-500">*</span></label>
-                <select name="chapter_id" id="chapter_id" required
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+            <div class="form-group">
+                <label class="form-label">Chapter <span style="color:#dc2626;">*</span></label>
+                <select name="chapter_id" id="chapter_id" required class="form-ctrl">
                     <option value="">Select Chapter</option>
                     @foreach($chapters as $chapter)
-                        <option value="{{ $chapter->id }}" {{ $topic->chapter_id == $chapter->id ? 'selected' : '' }}>
+                        <option value="{{ $chapter->id }}"
+                            {{ $topic->chapter_id == $chapter->id ? 'selected' : '' }}>
                             {{ $chapter->name }}
                         </option>
                     @endforeach
                 </select>
-                @error('chapter_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                @error('chapter_id') <p class="form-error">{{ $message }}</p> @enderror
             </div>
 
-            <div class="mb-5">
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Topic Name <span class="text-red-500">*</span></label>
-                <input type="text" name="name" value="{{ old('name', $topic->name) }}" required
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
-                @error('name') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+            <div class="form-group">
+                <label class="form-label">Topic Name <span style="color:#dc2626;">*</span></label>
+                <input type="text" name="name" value="{{ old('name', $topic->name) }}" required class="form-ctrl">
+                @error('name') <p class="form-error">{{ $message }}</p> @enderror
             </div>
 
-            <div class="mb-6">
-                <label class="flex items-center gap-3 cursor-pointer">
+            <div class="form-group">
+                <label class="check-row">
                     <input type="checkbox" name="is_active" value="1"
-                           {{ old('is_active', $topic->is_active) ? 'checked' : '' }}
-                           class="w-5 h-5 rounded text-purple-600">
-                    <span class="text-sm font-semibold text-gray-700">Active</span>
+                           {{ old('is_active', $topic->is_active) ? 'checked' : '' }}>
+                    <span class="form-label" style="margin:0;">Active</span>
                 </label>
             </div>
 
-            <div class="flex gap-3">
-                <button type="submit"
-                        class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-8 rounded-lg transition">
-                    ✅ Update Topic
-                </button>
-                <a href="{{ route('admin.topics.index') }}"
-                   class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg transition">Cancel</a>
+            <div class="btn-row">
+                <button type="submit" class="btn btn-purple">✅ Update Topic</button>
+                <a href="{{ route('admin.topics.index') }}" class="btn btn-gray">Cancel</a>
             </div>
         </form>
     </div>
@@ -72,22 +93,35 @@
 
 @push('scripts')
 <script>
+// Pre-load current subject's chapters on page load
+(function() {
+    var subjectSel  = document.getElementById('subject_id');
+    var chapterSel  = document.getElementById('chapter_id');
+    var currentChId = {{ $topic->chapter_id }};
+    var subjectId   = subjectSel.value;
+    if (!subjectId) return;
+
+    fetch('/admin/chapters/by-subject/' + subjectId)
+        .then(function(r) { return r.json(); })
+        .then(function(chapters) {
+            chapterSel.innerHTML = '<option value="">Select Chapter</option>';
+            chapters.forEach(function(c) {
+                chapterSel.innerHTML += '<option value="' + c.id + '"' + (c.id == currentChId ? ' selected' : '') + '>' + c.name + '</option>';
+            });
+        });
+})();
+
 document.getElementById('subject_id').addEventListener('change', function () {
-    const subjectId = this.value;
-    const chapterSelect = document.getElementById('chapter_id');
-    chapterSelect.innerHTML = '<option value="">Loading...</option>';
-
-    if (!subjectId) {
-        chapterSelect.innerHTML = '<option value="">Select Subject first</option>';
-        return;
-    }
-
-    fetch(`/admin/chapters/by-subject/${subjectId}`)
-        .then(r => r.json())
-        .then(chapters => {
-            chapterSelect.innerHTML = '<option value="">Select Chapter</option>';
-            chapters.forEach(c => {
-                chapterSelect.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+    var subjectId  = this.value;
+    var chapterSel = document.getElementById('chapter_id');
+    chapterSel.innerHTML = '<option value="">Loading...</option>';
+    if (!subjectId) { chapterSel.innerHTML = '<option value="">Select Subject first</option>'; return; }
+    fetch('/admin/chapters/by-subject/' + subjectId)
+        .then(function(r) { return r.json(); })
+        .then(function(chapters) {
+            chapterSel.innerHTML = '<option value="">Select Chapter</option>';
+            chapters.forEach(function(c) {
+                chapterSel.innerHTML += '<option value="' + c.id + '">' + c.name + '</option>';
             });
         });
 });

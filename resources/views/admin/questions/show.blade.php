@@ -3,6 +3,28 @@
 @section('title', 'Question Details')
 
 @section('content')
+
+<style>
+/* ═══════════════════════════════════════════════════════════
+   QUESTION SHOW — RESPONSIVE OVERRIDES
+═══════════════════════════════════════════════════════════ */
+.container { box-sizing:border-box; width:100%; }
+
+/* Quick stats: 2 col always, 4 col on md+ */
+.q-stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem; }
+/* Meta info grid */
+.q-meta-grid  { display:grid; grid-template-columns:1fr; gap:.875rem; }
+/* Options grid */
+.q-opts-grid  { display:grid; grid-template-columns:1fr; gap:1rem; }
+
+@media (min-width: 640px) {
+    .q-meta-grid  { grid-template-columns: 1fr 1fr; }
+    .q-opts-grid  { grid-template-columns: 1fr 1fr; }
+}
+@media (min-width: 768px) {
+    .q-stats-grid { grid-template-columns: repeat(4, 1fr); }
+}
+</style>
 <div class="container mx-auto px-4 py-8 max-w-5xl">
 
     <!-- Header Section -->
@@ -79,7 +101,7 @@
     </div>
 
     <!-- Quick Stats -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="q-stats-grid">
         <div class="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-5">
             <p class="text-green-700 text-sm font-medium mb-1">Positive Marks</p>
             <p class="text-3xl font-bold text-green-800">+{{ $question->marks }}</p>
@@ -367,7 +389,7 @@
             </div>
             Timeline & Metadata
         </h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="q-meta-grid">
             <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-lg border border-blue-200">
                 <p class="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2">Created At</p>
                 <p class="text-gray-800 font-semibold text-lg">{{ $question->created_at->format('M d, Y') }}</p>

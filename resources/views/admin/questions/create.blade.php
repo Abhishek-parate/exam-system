@@ -3,9 +3,63 @@
 @section('title', 'Add New Question')
 
 @section('content')
+
+<style>
+/* ═══════════════════════════════════════════════════════════
+   QUESTIONS FORM — RESPONSIVE OVERRIDES
+   Raw CSS @media queries ensure these work regardless of
+   whether Tailwind compiled these specific utility classes.
+═══════════════════════════════════════════════════════════ */
+
+/* Prevent any outer container from overflowing */
+.container { box-sizing:border-box; width:100%; }
+
+/* ── Page header: always wrap on small screens ── */
+.q-page-header {
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap:.75rem; flex-wrap:wrap; margin-bottom:1.5rem;
+}
+.q-page-header h1 { font-size:1.375rem !important; }
+.q-page-header-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
+
+/* ── Classification grid: 1 col → 2 col → 4 col ── */
+.q-class-grid {
+    display:grid;
+    grid-template-columns: 1fr;
+    gap:1rem;
+}
+/* ── Details grid: 1 col → 3 col ── */
+.q-detail-grid {
+    display:grid;
+    grid-template-columns: 1fr;
+    gap:1rem;
+}
+/* ── Options grid: 1 col → 2 col ── */
+.q-options-grid {
+    display:grid;
+    grid-template-columns: 1fr;
+    gap:1.25rem;
+}
+/* ── Sticky bottom bar ── */
+.q-action-bar {
+    display:flex; gap:.75rem; justify-content:space-between;
+    align-items:center; flex-wrap:wrap;
+}
+
+@media (min-width: 640px) {
+    .q-class-grid   { grid-template-columns: 1fr 1fr; }
+    .q-detail-grid  { grid-template-columns: 1fr 1fr; }
+    .q-options-grid { grid-template-columns: 1fr 1fr; }
+    .q-page-header h1 { font-size:1.875rem !important; }
+}
+@media (min-width: 1024px) {
+    .q-class-grid  { grid-template-columns: repeat(4, 1fr); }
+    .q-detail-grid { grid-template-columns: repeat(3, 1fr); }
+}
+</style>
 <div class="container mx-auto px-4 py-8">
     <!-- Header -->
-    <div class="flex justify-between items-center mb-8">
+    <div class="q-page-header">
         <div>
             <h1 class="text-3xl font-bold text-gray-900 mb-2">Add New Question</h1>
             <p class="text-gray-600 text-sm">Create a comprehensive question with multiple choice or text-input answers</p>
@@ -44,7 +98,7 @@
                 </div>
                 Question Classification
             </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="q-class-grid">
                 <!-- Exam Category -->
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">
@@ -127,7 +181,7 @@
                 </div>
                 Question Details
             </h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="q-detail-grid">
                 <!-- Difficulty -->
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Difficulty Level <span class="text-red-500">*</span></label>
@@ -254,7 +308,7 @@
             </div>
 
             <!-- 2×2 Grid -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="q-options-grid">
                 @for($i = 0; $i < 4; $i++)
                 <div class="border-2 border-gray-200 rounded-xl p-5 bg-gradient-to-br from-gray-50 to-white hover:border-green-300 hover:shadow-md transition-all duration-200">
                     <div class="flex justify-between items-center mb-4">
@@ -369,7 +423,7 @@
 
         <!-- Sticky Action Bar -->
         <div class="sticky bottom-0 bg-white border-t-2 border-gray-200 rounded-xl shadow-lg p-6 mt-8 backdrop-blur-sm bg-white/95">
-            <div class="flex gap-4 justify-between items-center flex-wrap">
+            <div class="q-action-bar">
                 <a href="{{ route('admin.questions.index') }}"
                    class="text-gray-600 hover:text-gray-900 font-medium flex items-center transition-colors group">
                     <svg class="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">

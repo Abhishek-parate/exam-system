@@ -3,64 +3,134 @@
 @section('title', 'Exam Instructions')
 
 @section('content')
-<div class="container mx-auto px-4 py-8 max-w-3xl">
+<style>
+    *, *::before, *::after { box-sizing: border-box; }
+    .instr-wrap { max-width: 42rem; margin: 0 auto; padding: 1.25rem 1rem 2rem; }
 
-    <a href="{{ route('student.exams.index') }}"
-       class="inline-flex items-center text-gray-600 hover:text-gray-900 mb-6 transition">
+    .back-link  { display:inline-flex; align-items:center; gap:.375rem; font-size:.875rem; color:#6b7280; text-decoration:none; margin-bottom:1.125rem; transition:color .15s; }
+    .back-link:hover { color:#111827; }
+
+    /* ── Exam header banner ── */
+    .exam-banner {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        border-radius: .875rem; padding: 1.25rem; color:#fff;
+        margin-bottom: 1rem; box-shadow: 0 4px 16px rgba(37,99,235,.3);
+    }
+    .banner-top   { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
+    .banner-title { font-size:1.25rem; font-weight:700; margin:0 0 .25rem; }
+    .banner-cat   { font-size:.8125rem; opacity:.75; margin:0; }
+    .banner-code  { background:rgba(255,255,255,.2); border-radius:9999px; padding:.35rem .875rem; font-size:.8125rem; font-weight:600; white-space:nowrap; flex-shrink:0; }
+
+    /* ── Info cards grid ── */
+    .info-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:.75rem; margin-bottom:1rem; }
+    .info-card { background:#fff; border-radius:.75rem; box-shadow:0 1px 4px rgba(0,0,0,.08); padding:.875rem; text-align:center; }
+    .info-val  { font-size:1.5rem; font-weight:700; line-height:1; }
+    .info-lbl  { font-size:.6875rem; color:#9ca3af; margin-top:.375rem; }
+
+    /* ── White cards ── */
+    .card      { background:#fff; border-radius:.75rem; box-shadow:0 1px 4px rgba(0,0,0,.08); padding:1.125rem; margin-bottom:1rem; }
+    .card-title { font-size:1rem; font-weight:700; color:#111827; margin:0 0 .875rem; }
+
+    /* ── Timing row ── */
+    .timing-grid { display:grid; grid-template-columns:1fr; gap:.625rem; }
+    .timing-row  { display:flex; align-items:center; gap:.75rem; padding:.75rem; border-radius:.625rem; }
+    .timing-row-green { background:#f0fdf4; }
+    .timing-row-red   { background:#fef2f2; }
+    .timing-icon { font-size:1.125rem; flex-shrink:0; }
+    .timing-label { font-size:.6875rem; color:#9ca3af; margin:0; }
+    .timing-val   { font-size:.9375rem; font-weight:600; color:#111827; margin:0; }
+
+    /* ── Marking table ── */
+    .mktbl-wrap { overflow-x:auto; }
+    .mktbl      { width:100%; border-collapse:collapse; min-width:280px; font-size:.875rem; }
+    .mktbl th   { padding:.5rem .75rem; border-bottom:1px solid #e5e7eb; font-weight:600; color:#6b7280; }
+    .mktbl td   { padding:.5rem .75rem; border-bottom:1px solid #f3f4f6; }
+    .mktbl tr:last-child td { border-bottom:none; }
+
+    /* ── Instructions list ── */
+    .instr-list { display:flex; flex-direction:column; gap:.625rem; }
+    .instr-item { display:flex; align-items:flex-start; gap:.5rem; font-size:.875rem; color:#374151; }
+    .instr-dot  { flex-shrink:0; margin-top:.1875rem; font-size:.75rem; }
+
+    /* ── Start section ── */
+    .start-section { background:#fff; border-radius:.875rem; box-shadow:0 1px 4px rgba(0,0,0,.08); padding:1.125rem; }
+    .check-label   { display:flex; align-items:flex-start; gap:.75rem; cursor:pointer; margin-bottom:1rem; user-select:none; }
+    .check-label input { margin-top:.125rem; width:1.125rem; height:1.125rem; flex-shrink:0; accent-color:#16a34a; }
+    .check-label span  { font-size:.9375rem; color:#374151; line-height:1.5; }
+
+    .start-btns { display:flex; gap:.75rem; }
+    #start-btn  { flex:1; border:none; border-radius:.625rem; font-size:1rem; font-weight:700; padding:.875rem; cursor:pointer; transition:background .15s; color:#fff; }
+    .cancel-btn { display:inline-flex; align-items:center; justify-content:center; background:#e5e7eb; color:#374151; font-size:.9375rem; font-weight:600; padding:.75rem 1.25rem; border-radius:.625rem; text-decoration:none; transition:background .15s; white-space:nowrap; }
+    .cancel-btn:hover { background:#d1d5db; }
+    .start-note { font-size:.75rem; color:#9ca3af; text-align:center; margin-top:.75rem; }
+
+    @media (min-width: 480px) {
+        .info-grid    { grid-template-columns: repeat(4,1fr); }
+        .timing-grid  { grid-template-columns: 1fr 1fr; }
+    }
+    @media (min-width: 768px) {
+        .instr-wrap   { padding: 2rem 1.5rem; }
+        .banner-title { font-size:1.5rem; }
+        .card         { padding:1.5rem; }
+        .card-title   { font-size:1.125rem; }
+    }
+</style>
+
+<div class="instr-wrap">
+
+    <a href="{{ route('student.exams.index') }}" class="back-link">
         ← Back to My Exams
     </a>
 
-    {{-- Exam Header --}}
-    <div class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-8 text-white mb-6 shadow-lg">
-        <div class="flex justify-between items-start flex-wrap gap-4">
+    {{-- Exam Banner --}}
+    <div class="exam-banner">
+        <div class="banner-top">
             <div>
-                <h1 class="text-2xl font-bold mb-1">{{ $exam->title }}</h1>
-                <p class="text-blue-200 text-sm">{{ $exam->examCategory?->name ?? 'General' }}</p>
+                <h1 class="banner-title">{{ $exam->title }}</h1>
+                <p class="banner-cat">{{ $exam->examCategory?->name ?? 'General' }}</p>
             </div>
-            <span class="px-4 py-2 bg-white bg-opacity-20 rounded-full text-sm font-semibold">
-                Code: {{ $exam->exam_code }}
-            </span>
+            <span class="banner-code">Code: {{ $exam->exam_code }}</span>
         </div>
     </div>
 
-    {{-- Exam Info Cards --}}
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white rounded-lg shadow p-4 text-center">
-            <p class="text-2xl font-bold text-blue-600">{{ $exam->duration_minutes }}</p>
-            <p class="text-xs text-gray-500 mt-1">Minutes</p>
+    {{-- Info Cards --}}
+    <div class="info-grid">
+        <div class="info-card">
+            <p class="info-val" style="color:#2563eb;">{{ $exam->duration_minutes }}</p>
+            <p class="info-lbl">Minutes</p>
         </div>
-        <div class="bg-white rounded-lg shadow p-4 text-center">
-            <p class="text-2xl font-bold text-purple-600">{{ $exam->total_questions }}</p>
-            <p class="text-xs text-gray-500 mt-1">Questions</p>
+        <div class="info-card">
+            <p class="info-val" style="color:#9333ea;">{{ $exam->total_questions }}</p>
+            <p class="info-lbl">Questions</p>
         </div>
-        <div class="bg-white rounded-lg shadow p-4 text-center">
-            <p class="text-2xl font-bold text-green-600">{{ $exam->total_marks }}</p>
-            <p class="text-xs text-gray-500 mt-1">Total Marks</p>
+        <div class="info-card">
+            <p class="info-val" style="color:#16a34a;">{{ $exam->total_marks }}</p>
+            <p class="info-lbl">Total Marks</p>
         </div>
-        <div class="bg-white rounded-lg shadow p-4 text-center">
-            <p class="text-2xl font-bold text-orange-500">
+        <div class="info-card">
+            <p class="info-val" style="color:#ea580c;">
                 {{ $exam->end_time->gt(now()) ? (int)$exam->end_time->diffInMinutes(now()) : '—' }}
             </p>
-            <p class="text-xs text-gray-500 mt-1">Mins Left</p>
+            <p class="info-lbl">Mins Left</p>
         </div>
     </div>
 
     {{-- Timing --}}
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 class="text-lg font-bold text-gray-800 mb-4">⏰ Exam Timing</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div class="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                <span class="text-green-600 text-xl">▶</span>
+    <div class="card">
+        <h2 class="card-title">⏰ Exam Timing</h2>
+        <div class="timing-grid">
+            <div class="timing-row timing-row-green">
+                <span class="timing-icon">▶</span>
                 <div>
-                    <p class="text-gray-500 text-xs">Start Time</p>
-                    <p class="font-semibold text-gray-800">{{ $exam->start_time->format('d M Y, h:i A') }}</p>
+                    <p class="timing-label">Start Time</p>
+                    <p class="timing-val">{{ $exam->start_time->format('d M Y, h:i A') }}</p>
                 </div>
             </div>
-            <div class="flex items-center gap-3 p-3 bg-red-50 rounded-lg">
-                <span class="text-red-600 text-xl">⏹</span>
+            <div class="timing-row timing-row-red">
+                <span class="timing-icon">⏹</span>
                 <div>
-                    <p class="text-gray-500 text-xs">End Time</p>
-                    <p class="font-semibold text-gray-800">{{ $exam->end_time->format('d M Y, h:i A') }}</p>
+                    <p class="timing-label">End Time</p>
+                    <p class="timing-val">{{ $exam->end_time->format('d M Y, h:i A') }}</p>
                 </div>
             </div>
         </div>
@@ -68,25 +138,25 @@
 
     {{-- Marking Scheme --}}
     @if($exam->markingSchemes->count() > 0)
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 class="text-lg font-bold text-gray-800 mb-4">📊 Marking Scheme</h2>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+    <div class="card">
+        <h2 class="card-title">📊 Marking Scheme</h2>
+        <div class="mktbl-wrap">
+            <table class="mktbl">
                 <thead>
-                    <tr class="border-b border-gray-200">
-                        <th class="text-left py-2 px-3 text-gray-600">Subject</th>
-                        <th class="text-center py-2 px-3 text-green-600">Correct</th>
-                        <th class="text-center py-2 px-3 text-red-500">Wrong</th>
-                        <th class="text-center py-2 px-3 text-gray-500">Unattempted</th>
+                    <tr>
+                        <th style="text-align:left;">Subject</th>
+                        <th style="text-align:center;color:#16a34a;">Correct</th>
+                        <th style="text-align:center;color:#dc2626;">Wrong</th>
+                        <th style="text-align:center;">Unattempted</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($exam->markingSchemes as $scheme)
-                    <tr class="border-b border-gray-100 hover:bg-gray-50">
-                        <td class="py-2 px-3 font-medium text-gray-800">{{ $scheme->subject?->name ?? 'All Subjects' }}</td>
-                        <td class="py-2 px-3 text-center text-green-600 font-semibold">+{{ $scheme->correct_marks }}</td>
-                        <td class="py-2 px-3 text-center text-red-500 font-semibold">-{{ $scheme->wrong_marks }}</td>
-                        <td class="py-2 px-3 text-center text-gray-500">{{ $scheme->unattempted_marks }}</td>
+                    <tr>
+                        <td style="font-weight:500;">{{ $scheme->subject?->name ?? 'All Subjects' }}</td>
+                        <td style="text-align:center;color:#16a34a;font-weight:700;">+{{ $scheme->correct_marks }}</td>
+                        <td style="text-align:center;color:#dc2626;font-weight:700;">-{{ $scheme->wrong_marks }}</td>
+                        <td style="text-align:center;color:#9ca3af;">{{ $scheme->unattempted_marks }}</td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -96,124 +166,94 @@
     @endif
 
     {{-- Instructions --}}
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 class="text-lg font-bold text-gray-800 mb-4">📋 Instructions</h2>
-        <ul class="space-y-3 text-sm text-gray-700">
-            <li class="flex items-start gap-2">
-                <span class="text-blue-500 shrink-0 mt-0.5">•</span>
+    <div class="card">
+        <h2 class="card-title">📋 Instructions</h2>
+        <div class="instr-list">
+            <div class="instr-item">
+                <span class="instr-dot" style="color:#3b82f6;">•</span>
                 <span>The exam will automatically submit when the time runs out.</span>
-            </li>
-            <li class="flex items-start gap-2">
-                <span class="text-blue-500 shrink-0 mt-0.5">•</span>
+            </div>
+            <div class="instr-item">
+                <span class="instr-dot" style="color:#3b82f6;">•</span>
                 <span>Do not refresh or close the browser during the exam.</span>
-            </li>
+            </div>
             @if($exam->randomize_questions)
-            <li class="flex items-start gap-2">
-                <span class="text-blue-500 shrink-0 mt-0.5">•</span>
+            <div class="instr-item">
+                <span class="instr-dot" style="color:#3b82f6;">•</span>
                 <span>Questions are presented in a randomized order.</span>
-            </li>
+            </div>
             @endif
             @if($exam->allow_resume)
-            <li class="flex items-start gap-2">
-                <span class="text-green-500 shrink-0 mt-0.5">•</span>
+            <div class="instr-item">
+                <span class="instr-dot" style="color:#16a34a;">•</span>
                 <span>If disconnected, you can resume from where you left off.</span>
-            </li>
+            </div>
             @else
-            <li class="flex items-start gap-2">
-                <span class="text-red-500 shrink-0 mt-0.5">•</span>
-                <span>This exam does NOT allow resuming after disconnection.</span>
-            </li>
+            <div class="instr-item">
+                <span class="instr-dot" style="color:#dc2626;">•</span>
+                <span>This exam does <strong>NOT</strong> allow resuming after disconnection.</span>
+            </div>
             @endif
             @if($exam->description)
-            <li class="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
-                <span class="text-blue-500 shrink-0 mt-0.5">ℹ</span>
+            <div class="instr-item" style="background:#eff6ff;border-radius:.625rem;padding:.75rem;">
+                <span class="instr-dot" style="color:#3b82f6;">ℹ</span>
                 <span>{{ $exam->description }}</span>
-            </li>
+            </div>
             @endif
-        </ul>
+        </div>
     </div>
 
-    {{-- Confirmation & Start --}}
-    <div class="bg-white rounded-lg shadow-md p-6">
-
-        {{-- ✅ Checkbox uses onclick inline handler — no event listener dependency --}}
-        <label class="flex items-start gap-3 cursor-pointer mb-6 select-none"
-               onclick="toggleStart()">
-            <input type="checkbox"
-                   id="confirm-checkbox"
-                   class="mt-1 w-5 h-5 rounded cursor-pointer"
-                   style="pointer-events:none;">
-            <span class="text-sm text-gray-700">
-                I have read and understood all the instructions. I am ready to begin the exam.
-            </span>
+    {{-- Start Section --}}
+    <div class="start-section">
+        <label class="check-label" onclick="toggleStart()">
+            <input type="checkbox" id="confirm-checkbox" style="pointer-events:none;">
+            <span>I have read and understood all the instructions. I am ready to begin the exam.</span>
         </label>
 
-        <div class="flex gap-4">
-            {{-- ✅ Start button — enabled/disabled via JS toggleStart() --}}
-            <button id="start-btn"
-                    onclick="startExam()"
-                    disabled
-                    class="flex-1 text-white font-bold py-3 px-8 rounded-lg transition text-lg"
-                    style="background-color: #9ca3af; cursor: not-allowed;"
-                    id="start-btn">
+        <div class="start-btns">
+            <button id="start-btn" onclick="startExam()" disabled
+                    style="background-color:#9ca3af;cursor:not-allowed;">
                 🚀 Start Exam Now
             </button>
-            <a href="{{ route('student.exams.index') }}"
-               class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition">
-                Cancel
-            </a>
+            <a href="{{ route('student.exams.index') }}" class="cancel-btn">Cancel</a>
         </div>
 
-        <p class="text-xs text-gray-400 mt-3 text-center">
-            Once started, the timer cannot be paused.
-        </p>
+        <p class="start-note">Once started, the timer cannot be paused.</p>
     </div>
-
 </div>
 
-{{-- ✅ Inline script — no @push dependency, runs immediately when page loads --}}
 <script>
     var examStarted = false;
 
     function toggleStart() {
-        // Small delay so checkbox state updates first
         setTimeout(function() {
             var checkbox = document.getElementById('confirm-checkbox');
             var btn      = document.getElementById('start-btn');
-
             if (checkbox.checked) {
-                btn.disabled             = false;
-                btn.style.backgroundColor = '#16a34a'; // green-600
-                btn.style.cursor          = 'pointer';
+                btn.disabled = false;
+                btn.style.backgroundColor = '#16a34a';
+                btn.style.cursor = 'pointer';
             } else {
-                btn.disabled             = true;
-                btn.style.backgroundColor = '#9ca3af'; // gray-400
-                btn.style.cursor          = 'not-allowed';
+                btn.disabled = true;
+                btn.style.backgroundColor = '#9ca3af';
+                btn.style.cursor = 'not-allowed';
             }
         }, 10);
     }
 
     function startExam() {
         if (examStarted) return;
-
         var checkbox = document.getElementById('confirm-checkbox');
-        if (!checkbox.checked) {
-            alert('Please tick the checkbox first.');
-            return;
-        }
+        if (!checkbox.checked) { alert('Please tick the checkbox first.'); return; }
 
         examStarted = true;
-        var btn     = document.getElementById('start-btn');
-        btn.disabled    = true;
+        var btn = document.getElementById('start-btn');
+        btn.disabled = true;
         btn.textContent = '⏳ Starting...';
 
         fetch("{{ route('student.exams.start', $exam) }}", {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Accept':       'application/json',
-            }
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' }
         })
         .then(function(r) { return r.json(); })
         .then(function(data) {
@@ -221,17 +261,15 @@
                 window.location.href = data.redirect_url;
             } else {
                 alert(data.message || 'Failed to start exam. Please try again.');
-                examStarted          = false;
-                btn.disabled         = false;
-                btn.textContent      = '🚀 Start Exam Now';
+                examStarted = false; btn.disabled = false;
+                btn.textContent = '🚀 Start Exam Now';
                 btn.style.backgroundColor = '#16a34a';
             }
         })
         .catch(function() {
             alert('Network error. Please try again.');
-            examStarted              = false;
-            btn.disabled             = false;
-            btn.textContent          = '🚀 Start Exam Now';
+            examStarted = false; btn.disabled = false;
+            btn.textContent = '🚀 Start Exam Now';
             btn.style.backgroundColor = '#16a34a';
         });
     }

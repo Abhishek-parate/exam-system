@@ -2,26 +2,49 @@
 @section('title', 'Add Chapter')
 
 @section('content')
-<div class="container mx-auto px-4 py-8 max-w-2xl">
+<style>
+    .page-header { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1.25rem; }
+    .page-title  { font-size:1.25rem; font-weight:700; color:#111827; margin:0; }
+    .back-link   { display:inline-flex; align-items:center; gap:.25rem; font-size:.875rem; font-weight:500; color:#6b7280; text-decoration:none; background:#f3f4f6; padding:.5rem 1rem; border-radius:.5rem; transition:background .15s; white-space:nowrap; }
+    .back-link:hover { background:#e5e7eb; color:#111827; }
 
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">📚 Add Chapter</h1>
-        <a href="{{ route('admin.chapters.index') }}"
-           class="text-sm text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg transition">
-            ← Back
-        </a>
+    .form-card   { background:#fff; border-radius:.75rem; box-shadow:0 1px 4px rgba(0,0,0,.08); padding:1.25rem; }
+    .form-group  { margin-bottom:1.125rem; }
+    .form-label  { display:block; font-size:.875rem; font-weight:600; color:#374151; margin-bottom:.5rem; }
+    .form-ctrl   { width:100%; padding:.625rem .875rem; border:1px solid #d1d5db; border-radius:.5rem; font-size:.875rem; color:#374151; background:#fff; outline:none; box-sizing:border-box; transition:border .15s, box-shadow .15s; }
+    .form-ctrl:focus { border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.1); }
+    .form-error  { font-size:.75rem; color:#dc2626; margin-top:.375rem; }
+
+    .check-row   { display:flex; align-items:center; gap:.625rem; cursor:pointer; }
+    .check-row input { width:1.125rem; height:1.125rem; accent-color:#2563eb; cursor:pointer; }
+
+    .btn-row { display:flex; gap:.75rem; flex-wrap:wrap; padding-top:.375rem; }
+    .btn     { display:inline-flex; align-items:center; gap:.375rem; padding:.625rem 1.5rem; border-radius:.5rem; font-size:.875rem; font-weight:600; cursor:pointer; border:none; text-decoration:none; transition:background .15s; white-space:nowrap; }
+    .btn-primary { background:#2563eb; color:#fff; box-shadow:0 1px 3px rgba(37,99,235,.3); }
+    .btn-primary:hover { background:#1d4ed8; }
+    .btn-gray    { background:#e5e7eb; color:#374151; }
+    .btn-gray:hover { background:#d1d5db; }
+
+    @media (min-width: 768px) {
+        .page-title { font-size:1.5rem; }
+        .form-card  { padding:1.75rem; }
+        .form-group { margin-bottom:1.375rem; }
+    }
+</style>
+
+<div style="max-width:38rem;">
+    <div class="page-header">
+        <h1 class="page-title">📚 Add Chapter</h1>
+        <a href="{{ route('admin.chapters.index') }}" class="back-link">← Back</a>
     </div>
 
-    <div class="bg-white rounded-xl shadow-md p-6">
+    <div class="form-card">
         <form action="{{ route('admin.chapters.store') }}" method="POST">
             @csrf
 
-            <div class="mb-5">
-                <label class="block text-sm font-semibold text-gray-700 mb-2">
-                    Subject <span class="text-red-500">*</span>
-                </label>
-                <select name="subject_id" required
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div class="form-group">
+                <label class="form-label">Subject <span style="color:#dc2626;">*</span></label>
+                <select name="subject_id" required class="form-ctrl">
                     <option value="">Select Subject</option>
                     @foreach($subjects as $subject)
                         <option value="{{ $subject->id }}" {{ old('subject_id') == $subject->id ? 'selected' : '' }}>
@@ -29,47 +52,37 @@
                         </option>
                     @endforeach
                 </select>
-                @error('subject_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                @error('subject_id') <p class="form-error">{{ $message }}</p> @enderror
             </div>
 
-            <div class="mb-5">
-                <label class="block text-sm font-semibold text-gray-700 mb-2">
-                    Chapter Name <span class="text-red-500">*</span>
-                </label>
+            <div class="form-group">
+                <label class="form-label">Chapter Name <span style="color:#dc2626;">*</span></label>
                 <input type="text" name="name" value="{{ old('name') }}" required
-                       placeholder="e.g. Kinematics"
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                @error('name') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                       placeholder="e.g. Kinematics" class="form-ctrl">
+                @error('name') <p class="form-error">{{ $message }}</p> @enderror
             </div>
 
-            <div class="mb-5">
-                <label class="block text-sm font-semibold text-gray-700 mb-2">
-                    Chapter Number <span class="text-xs text-gray-400">(Optional)</span>
+            <div class="form-group">
+                <label class="form-label">
+                    Chapter Number
+                    <span style="font-size:.75rem;color:#9ca3af;font-weight:400;">(Optional)</span>
                 </label>
                 <input type="number" name="chapter_number" value="{{ old('chapter_number') }}" min="1"
-                       placeholder="e.g. 1"
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                @error('chapter_number') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                       placeholder="e.g. 1" class="form-ctrl" style="max-width:10rem;">
+                @error('chapter_number') <p class="form-error">{{ $message }}</p> @enderror
             </div>
 
-            <div class="mb-6">
-                <label class="flex items-center gap-3 cursor-pointer">
+            <div class="form-group">
+                <label class="check-row">
                     <input type="checkbox" name="is_active" value="1"
-                           {{ old('is_active', '1') ? 'checked' : '' }}
-                           class="w-5 h-5 rounded text-blue-600">
-                    <span class="text-sm font-semibold text-gray-700">Active</span>
+                           {{ old('is_active', '1') ? 'checked' : '' }}>
+                    <span class="form-label" style="margin:0;">Active</span>
                 </label>
             </div>
 
-            <div class="flex gap-3">
-                <button type="submit"
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition">
-                    ✅ Save Chapter
-                </button>
-                <a href="{{ route('admin.chapters.index') }}"
-                   class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg transition">
-                    Cancel
-                </a>
+            <div class="btn-row">
+                <button type="submit" class="btn btn-primary">✅ Save Chapter</button>
+                <a href="{{ route('admin.chapters.index') }}" class="btn btn-gray">Cancel</a>
             </div>
         </form>
     </div>

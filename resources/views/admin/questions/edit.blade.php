@@ -3,9 +3,33 @@
 @section('title', 'Edit Question')
 
 @section('content')
+
+<style>
+/* ═══════════════════════════════════════════════════════════
+   QUESTIONS FORM — RESPONSIVE OVERRIDES
+═══════════════════════════════════════════════════════════ */
+.container { box-sizing:border-box; width:100%; }
+.q-page-header { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+.q-page-header h1 { font-size:1.375rem !important; }
+.q-page-header-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
+.q-class-grid  { display:grid; grid-template-columns:1fr; gap:1rem; }
+.q-detail-grid { display:grid; grid-template-columns:1fr; gap:1rem; }
+.q-options-grid { display:grid; grid-template-columns:1fr; gap:1.25rem; }
+.q-action-bar  { display:flex; gap:.75rem; justify-content:space-between; align-items:center; flex-wrap:wrap; }
+@media (min-width: 640px) {
+    .q-class-grid   { grid-template-columns: 1fr 1fr; }
+    .q-detail-grid  { grid-template-columns: 1fr 1fr; }
+    .q-options-grid { grid-template-columns: 1fr 1fr; }
+    .q-page-header h1 { font-size:1.875rem !important; }
+}
+@media (min-width: 1024px) {
+    .q-class-grid  { grid-template-columns: repeat(4, 1fr); }
+    .q-detail-grid { grid-template-columns: repeat(3, 1fr); }
+}
+</style>
 <div class="container mx-auto px-4 py-8">
     <!-- Header -->
-    <div class="flex justify-between items-center mb-8">
+    <div class="q-page-header">
         <div>
             <h1 class="text-3xl font-bold text-gray-900 mb-2">Edit Question #{{ $question->id }}</h1>
             <p class="text-gray-600 text-sm">Update question details and answer options</p>
@@ -44,7 +68,7 @@
                 </div>
                 Question Classification
             </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="q-class-grid">
                 <!-- Exam Category -->
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Exam Category <span class="text-xs font-normal text-gray-500 ml-1">(Optional)</span></label>
@@ -273,7 +297,7 @@
                 <span class="text-xs text-white bg-green-600 px-3 py-1.5 rounded-full font-semibold">Select ONLY ONE correct answer</span>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="q-options-grid">
                 @foreach($question->options as $index => $option)
                 <div class="border-2 border-gray-200 rounded-xl p-5 bg-gradient-to-br from-gray-50 to-white hover:border-green-300 hover:shadow-md transition-all duration-200">
                     <div class="flex justify-between items-center mb-4">
@@ -410,7 +434,7 @@
 
         <!-- Sticky Action Bar -->
         <div class="sticky bottom-0 bg-white border-t-2 border-gray-200 rounded-xl shadow-lg p-6 mt-8 backdrop-blur-sm bg-white/95">
-            <div class="flex gap-4 justify-between items-center flex-wrap">
+            <div class="q-action-bar">
                 <a href="{{ route('admin.questions.show', $question) }}"
                    class="text-gray-600 hover:text-gray-900 font-medium flex items-center transition-colors group">
                     <svg class="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
