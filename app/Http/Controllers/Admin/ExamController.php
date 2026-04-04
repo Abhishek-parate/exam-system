@@ -17,6 +17,13 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Font;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExamController extends Controller
 {
@@ -85,7 +92,6 @@ class ExamController extends Controller
 
         $validated = $request->validate($rules);
 
-        // Convert empty datetime/string fields to null (MySQL rejects '' for datetime columns)
         $validated['result_release_time'] = !empty($validated['result_release_time']) ? $validated['result_release_time'] : null;
         $validated['description']         = !empty($validated['description'])         ? $validated['description']         : null;
 
@@ -155,11 +161,10 @@ class ExamController extends Controller
     }
 
     // =========================================================
-    // ✅ NEW: SHOW ATTEMPT DETAIL — full question-by-question preview
+    // SHOW ATTEMPT DETAIL — full question-by-question preview
     // =========================================================
     public function showAttempt(Exam $exam, ExamAttempt $attempt)
     {
-        // Ensure the attempt belongs to this exam
         if ($attempt->exam_id !== $exam->id) {
             abort(404);
         }
@@ -172,7 +177,6 @@ class ExamController extends Controller
             'answers.selectedOption',
         ]);
 
-        // Build an ordered list: question + student's answer + correct option
         $questions = $attempt->answers->map(function ($answer) {
             $question      = $answer->question;
             $options       = $question?->options ?? collect();
@@ -238,7 +242,6 @@ class ExamController extends Controller
 
         $validated = $request->validate($rules);
 
-        // Convert empty datetime/string fields to null
         $validated['result_release_time'] = !empty($validated['result_release_time']) ? $validated['result_release_time'] : null;
         $validated['description']         = !empty($validated['description'])         ? $validated['description']         : null;
         $validated['randomize_questions']      = $request->has('randomize_questions')      ? 1 : 0;
@@ -270,7 +273,7 @@ class ExamController extends Controller
     }
 
     // =========================================================
-    // ✅ PUBLISH ALL RESULTS
+    // PUBLISH ALL RESULTS
     // =========================================================
     public function publishResults(Exam $exam)
     {
@@ -285,7 +288,7 @@ class ExamController extends Controller
     }
 
     // =========================================================
-    // ✅ PUBLISH SINGLE RESULT (AJAX)
+    // PUBLISH SINGLE RESULT (AJAX)
     // =========================================================
     public function publishSingleResult(Exam $exam, ExamResult $result)
     {
@@ -302,7 +305,7 @@ class ExamController extends Controller
     }
 
     // =========================================================
-    // ✅ RECALCULATE RESULTS
+    // RECALCULATE RESULTS
     // =========================================================
     public function recalculateResults(Exam $exam)
     {
@@ -335,6 +338,348 @@ class ExamController extends Controller
         }
 
         return back()->with($failed > 0 ? 'error' : 'success', $msg);
+    }
+
+    // =========================================================
+    // EXPORT RESULTS — Download Excel (Rank Report + Subject Marks)
+    // =========================================================
+    public function exportResults(Exam $exam): StreamedResponse
+    {
+        // Load all submitted attempts with subject-wise results
+        $attempts = $exam->attempts()
+            ->with(['student.user', 'result.subjectWiseResults.subject'])
+            ->whereIn('status', ['submitted', 'auto_submitted'])
+            ->get()
+            ->sortBy(fn($a) => $a->result?->rank ?? 9999)
+            ->values();
+
+        $examTitle    = $exam->title;
+        $examCategory = $exam->examCategory?->name ?? '';
+        $totalMarks   = $exam->total_marks;
+
+        // ── Collect all unique subjects that appear in this exam ──
+        // We gather them from exam questions to keep a stable ordered list
+        $subjectList = $exam->questions()
+            ->with('subject')
+            ->get()
+            ->pluck('subject')
+            ->filter()
+            ->unique('id')
+            ->sortBy('name')
+            ->values(); // Collection of Subject models, ordered
+
+        // Build subjectId => subjectName map for quick lookup
+        $subjectMap = $subjectList->pluck('name', 'id'); // [id => name]
+
+        // Helper: convert a 1-based column index to Excel letter(s)
+        $colLetter = function (int $index): string {
+            $letter = '';
+            while ($index > 0) {
+                $index--;
+                $letter = chr(65 + ($index % 26)) . $letter;
+                $index  = intdiv($index, 26);
+            }
+            return $letter;
+        };
+
+        // ── Fixed header columns (A–T = indices 1–20) ────────────
+        $fixedHeaders = [
+            1  => 'Name',
+            2  => 'Enrollment No.',
+            3  => 'Email',
+            4  => 'Rank',
+            5  => 'Score',
+            6  => 'Total Marks',
+            7  => 'Percentage (%)',
+            8  => 'Correct',
+            9  => 'Wrong',
+            10 => 'Skipped',
+            11 => 'Accuracy (%)',
+            12 => 'Time Taken',
+            13 => 'Submitted At',
+            14 => 'Status',
+            15 => 'Auto Submitted',
+            16 => 'Test Start Time',
+            17 => 'Test End Time',
+            18 => 'Duration (min)',
+            19 => 'Exam Code',
+            20 => 'Mobile',
+        ];
+
+        // ── Dynamic subject columns start at index 21 ────────────
+        $subjectColStart = 21;
+        $subjectCols     = []; // subjectId => colIndex
+        $colIndex        = $subjectColStart;
+        foreach ($subjectList as $subject) {
+            $subjectCols[$subject->id] = $colIndex;
+            $colIndex++;
+        }
+
+        $lastColIndex  = $colIndex - 1; // last used column index
+        $lastColLetter = $colLetter($lastColIndex > 0 ? $lastColIndex : 20);
+
+        // If no subjects, last column is T (20)
+        if ($subjectList->isEmpty()) {
+            $lastColLetter = 'T';
+        }
+
+        $spreadsheet = new Spreadsheet();
+        $sheet       = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Rank Report');
+
+        // ── ROW 1: Institute + exam name header ──────────────────
+        $sheet->setCellValue('A1', 'Reliable Academy - Rank Report');
+        $sheet->mergeCells('A1:' . $lastColLetter . '1');
+        $sheet->getStyle('A1')->applyFromArray([
+            'font' => [
+                'bold'  => true,
+                'size'  => 14,
+                'name'  => 'Arial',
+                'color' => ['argb' => 'FFFFFFFF'],
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FF3730A3'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(30);
+
+        // ── ROW 2: Exam meta row ──────────────────────────────────
+        $sheet->setCellValue('A2',
+            'Exam: ' . $examTitle .
+            '   |   Category: ' . $examCategory .
+            '   |   Total Marks: ' . $totalMarks .
+            '   |   Date: ' . $exam->start_time->format('d-M-y')
+        );
+        $sheet->mergeCells('A2:' . $lastColLetter . '2');
+        $sheet->getStyle('A2')->applyFromArray([
+            'font' => [
+                'bold'  => false,
+                'size'  => 10,
+                'name'  => 'Arial',
+                'color' => ['argb' => 'FF1E1B4B'],
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FFE0E7FF'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_LEFT,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+                'indent'     => 1,
+            ],
+        ]);
+        $sheet->getRowDimension(2)->setRowHeight(20);
+
+        // ── ROW 3: Column headers (fixed + subject columns) ───────
+        foreach ($fixedHeaders as $idx => $label) {
+            $sheet->setCellValue($colLetter($idx) . '3', $label);
+        }
+
+        // Subject-wise header columns (teal background to distinguish)
+        foreach ($subjectList as $subject) {
+            $col = $colLetter($subjectCols[$subject->id]);
+            $sheet->setCellValue($col . '3', $subject->name . ' Marks');
+            $sheet->getStyle($col . '3')->applyFromArray([
+                'font' => [
+                    'bold'  => true,
+                    'size'  => 10,
+                    'name'  => 'Arial',
+                    'color' => ['argb' => 'FFFFFFFF'],
+                ],
+                'fill' => [
+                    'fillType'   => Fill::FILL_SOLID,
+                    'startColor' => ['argb' => 'FF0F766E'], // teal-700
+                ],
+                'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    'vertical'   => Alignment::VERTICAL_CENTER,
+                    'wrapText'   => true,
+                ],
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => Border::BORDER_THIN,
+                        'color'       => ['argb' => 'FF99F6E4'],
+                    ],
+                ],
+            ]);
+            $sheet->getColumnDimension($col)->setWidth(18);
+        }
+
+        // Style the fixed header columns
+        $sheet->getStyle('A3:T3')->applyFromArray([
+            'font' => [
+                'bold'  => true,
+                'size'  => 10,
+                'name'  => 'Arial',
+                'color' => ['argb' => 'FFFFFFFF'],
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FF4338CA'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+                'wrapText'   => true,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color'       => ['argb' => 'FFBFDBFE'],
+                ],
+            ],
+        ]);
+        $sheet->getRowDimension(3)->setRowHeight(22);
+
+        // ── DATA rows starting at row 4 ──────────────────────────
+        $row = 4;
+        foreach ($attempts as $attempt) {
+            $result  = $attempt->result;
+            $student = $attempt->student;
+            $user    = $student?->user;
+
+            $name     = $user?->name ?? 'Unknown';
+            $enrollNo = $student?->enrollment_number ?? '-';
+            $email    = $user?->email ?? '-';
+            $mobile   = $user?->mobile ?? '-';
+
+            $rank       = $result?->rank ?? '-';
+            $score      = $result ? round($result->obtained_marks, 2) : '-';
+            $correct    = $result?->correct_answers ?? '-';
+            $wrong      = $result?->wrong_answers ?? '-';
+            $skipped    = $result?->unattempted ?? '-';
+            $accuracy   = $result ? round($result->accuracy_percentage, 2) : '-';
+            $percentage = ($result && $totalMarks > 0)
+                            ? round(($result->obtained_marks / $totalMarks) * 100, 2)
+                            : '-';
+
+            $timeSecs  = $attempt->time_taken_seconds;
+            $timeTaken = $timeSecs
+                            ? floor($timeSecs / 60) . 'm ' . ($timeSecs % 60) . 's'
+                            : '-';
+
+            $submittedAt = ($attempt->submitted_at ?? $attempt->auto_submitted_at)
+                            ?->format('d-M-y h:i A') ?? '-';
+            $isAuto  = $attempt->status === 'auto_submitted' ? 'Yes' : 'No';
+            $status  = $result
+                        ? ($result->is_published ? 'Published' : 'Under Review')
+                        : 'No Result';
+
+            // Fixed columns
+            $sheet->setCellValue('A' . $row, $name);
+            $sheet->setCellValue('B' . $row, $enrollNo);
+            $sheet->setCellValue('C' . $row, $email);
+            $sheet->setCellValue('D' . $row, $rank);
+            $sheet->setCellValue('E' . $row, $score);
+            $sheet->setCellValue('F' . $row, $totalMarks);
+            $sheet->setCellValue('G' . $row, $percentage);
+            $sheet->setCellValue('H' . $row, $correct);
+            $sheet->setCellValue('I' . $row, $wrong);
+            $sheet->setCellValue('J' . $row, $skipped);
+            $sheet->setCellValue('K' . $row, $accuracy);
+            $sheet->setCellValue('L' . $row, $timeTaken);
+            $sheet->setCellValue('M' . $row, $submittedAt);
+            $sheet->setCellValue('N' . $row, $status);
+            $sheet->setCellValue('O' . $row, $isAuto);
+            $sheet->setCellValue('P' . $row, $exam->start_time->format('d-M-y h:i A'));
+            $sheet->setCellValue('Q' . $row, $exam->end_time->format('d-M-y h:i A'));
+            $sheet->setCellValue('R' . $row, $exam->duration_minutes);
+            $sheet->setCellValue('S' . $row, $exam->exam_code);
+            $sheet->setCellValue('T' . $row, $mobile);
+
+            // ── Subject-wise marks columns ────────────────────────
+            if ($result && ! $subjectList->isEmpty()) {
+                // Build a quick lookup: subjectId => obtained_marks
+                $subjectMarksLookup = $result->subjectWiseResults
+                    ->keyBy('subject_id')
+                    ->map(fn($r) => round($r->obtained_marks, 2));
+
+                foreach ($subjectCols as $subjectId => $colIdx) {
+                    $cellCol   = $colLetter($colIdx);
+                    $markValue = $subjectMarksLookup[$subjectId] ?? '-';
+                    $sheet->setCellValue($cellCol . $row, $markValue);
+                }
+            } else {
+                // Fill subject columns with '-' when no result
+                foreach ($subjectCols as $colIdx) {
+                    $sheet->setCellValue($colLetter($colIdx) . $row, '-');
+                }
+            }
+
+            // Zebra striping — covers all columns including subject ones
+            $bgColor = ($row % 2 === 0) ? 'FFF5F3FF' : 'FFFFFFFF';
+            $sheet->getStyle('A' . $row . ':' . $lastColLetter . $row)->applyFromArray([
+                'font' => ['size' => 10, 'name' => 'Arial'],
+                'fill' => [
+                    'fillType'   => Fill::FILL_SOLID,
+                    'startColor' => ['argb' => $bgColor],
+                ],
+                'alignment' => [
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                ],
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => Border::BORDER_THIN,
+                        'color'       => ['argb' => 'FFE5E7EB'],
+                    ],
+                ],
+            ]);
+
+            // Gold / silver / bronze for top 3 ranks
+            if (is_numeric($rank)) {
+                $rankColor = match(true) {
+                    $rank == 1 => 'FFCA8A04',
+                    $rank == 2 => 'FF6B7280',
+                    $rank == 3 => 'FFB45309',
+                    default    => 'FF111827',
+                };
+                $sheet->getStyle('D' . $row)->getFont()
+                      ->setBold($rank <= 3)
+                      ->getColor()
+                      ->setARGB($rankColor);
+            }
+
+            $row++;
+        }
+
+        // ── Fixed column widths ───────────────────────────────────
+        $widths = [
+            'A' => 28, 'B' => 20, 'C' => 32, 'D' => 8,
+            'E' => 10, 'F' => 12, 'G' => 16, 'H' => 10,
+            'I' => 10, 'J' => 10, 'K' => 14, 'L' => 14,
+            'M' => 24, 'N' => 14, 'O' => 14, 'P' => 24,
+            'Q' => 24, 'R' => 14, 'S' => 14, 'T' => 16,
+        ];
+        foreach ($widths as $col => $width) {
+            $sheet->getColumnDimension($col)->setWidth($width);
+        }
+        // Subject column widths already set in header loop above (18 each)
+
+        // Freeze panes so header stays visible on scroll
+        $sheet->freezePane('A4');
+
+        // ── Stream download ───────────────────────────────────────
+        $filename = 'Rank-Report_'
+                  . str_replace([' ', '/'], '-', $examTitle)
+                  . '_' . now()->format('d-m-Y')
+                  . '.xlsx';
+
+        $response = new StreamedResponse(function () use ($spreadsheet) {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+        });
+
+        $response->headers->set('Content-Type',        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        $response->headers->set('Cache-Control',       'max-age=0');
+        $response->headers->set('Pragma',              'public');
+
+        return $response;
     }
 
     // =========================================================

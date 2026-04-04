@@ -26,12 +26,11 @@ Route::post('/logout',[LoginController::class, 'logout'])->name('logout');
 |--------------------------------------------------------------------------
 | Admin Routes
 |--------------------------------------------------------------------------
-
 */
 
 Route::prefix('student')->name('student.')->middleware(['auth', 'role:student'])->group(function () {
 
-    Route::get('exams/{exam}/attempt/{attempt}', 
+    Route::get('exams/{exam}/attempt/{attempt}',
         [ExamAttemptController::class, 'showAttempt']
     )->name('exams.attempt.show');
 
@@ -53,6 +52,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
 
 
 Route::post('/student/exams/{token}/cheat-log', [ExamAttemptController::class, 'cheatLog']);
+
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->group(function () {
 
     Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard');
@@ -92,12 +92,15 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::delete('exams/{exam}/students/{student}',   [AdminExamController::class, 'unenrollStudent'])  ->name('exams.students.unenroll');
 
     // Results
-    Route::post('exams/{exam}/publish-results',                 [AdminExamController::class, 'publishResults'])     ->name('exams.publish-results');
-    Route::post('exams/{exam}/recalculate-results',             [AdminExamController::class, 'recalculateResults']) ->name('exams.recalculate-results');
-    Route::post('exams/{exam}/results/{result}/publish',        [AdminExamController::class, 'publishSingleResult'])->name('exams.results.publish-single');
+    Route::post('exams/{exam}/publish-results',                [AdminExamController::class, 'publishResults'])     ->name('exams.publish-results');
+    Route::post('exams/{exam}/recalculate-results',            [AdminExamController::class, 'recalculateResults']) ->name('exams.recalculate-results');
+    Route::post('exams/{exam}/results/{result}/publish',       [AdminExamController::class, 'publishSingleResult'])->name('exams.results.publish-single');
+
+    // ✅ Export results as Excel — BEFORE resource
+    Route::get('exams/{exam}/export-results',                  [AdminExamController::class, 'exportResults'])      ->name('exams.export-results');
 
     // Attempt detail — BEFORE resource
-    Route::get('exams/{exam}/attempts/{attempt}',               [AdminExamController::class, 'showAttempt'])        ->name('exams.attempts.show');
+    Route::get('exams/{exam}/attempts/{attempt}',              [AdminExamController::class, 'showAttempt'])        ->name('exams.attempts.show');
 
     // Exams resource (after all custom routes)
     Route::resource('exams', AdminExamController::class);
